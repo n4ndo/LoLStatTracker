@@ -143,9 +143,13 @@ public class LeagueChampion {
         _modelMap.put(266, "Aatrox");
         _modelMap.put(236, "Lucian");
 <<<<<<< HEAD
+<<<<<<< HEAD
         _modelMap.put(222, "Jinx");
 =======
 >>>>>>> 7719cf79779fcffbc79eb1dc7e3c4f13656385ca
+=======
+        _modelMap.put(222, "Jinx");
+>>>>>>> ea62fac47c21458dd9095fa1db8f6abb54926a8f
         
         _champMap = new HashMap<Integer, LeagueChampion>();
     }
