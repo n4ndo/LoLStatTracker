@@ -3,11 +3,11 @@ package com.rajohnson;
 import java.util.ArrayList;
 import java.util.Date;
 
-import org.codehaus.jackson.annotate.*;
 import org.ektorp.support.CouchDbDocument;
 
 import com.achimala.leaguelib.models.MatchHistoryStatType;
 
+@SuppressWarnings("serial")
 public class Match extends CouchDbDocument{
 	
 	
@@ -158,6 +158,19 @@ public class Match extends CouchDbDocument{
 	public void setDate(Date matchDate)
 	{
 		datePlayed = matchDate;
+	}
+	
+	@Override
+	public String toString()
+	{
+		String result = "Played game " + matchmakingQueue + " as " + championPlayed;
+    	result += "\n\tKills: " + numKills + " Assists: " + numAssists + " Deaths: " + numDeaths;
+    	result += "\n\tMinion Kills: " + minionsKilled + " Gold Earned: " + goldEarned;
+    	result += "\n\t" + itemsBought;
+    	result += "\n\tVictory: " + win;
+    	result += "\n\tGame ID: " + gameId;
+    	
+    	return result;
 	}
 
 }

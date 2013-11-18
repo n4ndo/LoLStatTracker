@@ -6,22 +6,23 @@ import org.ektorp.http.*;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.Vector;
 
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 
@@ -30,16 +31,9 @@ import com.achimala.leaguelib.connection.LeagueConnection;
 import com.achimala.leaguelib.connection.LeagueServer;
 import com.achimala.leaguelib.errors.LeagueException;
 import com.achimala.leaguelib.models.LeagueChampion;
-import com.achimala.leaguelib.models.LeagueGame;
-import com.achimala.leaguelib.models.LeagueRankedStatType;
 import com.achimala.leaguelib.models.LeagueSummoner;
-import com.achimala.leaguelib.models.LeagueSummonerLeagueStats;
 import com.achimala.leaguelib.models.MatchHistoryEntry;
 import com.achimala.leaguelib.models.MatchHistoryStatType;
-import com.achimala.util.Callback;
-import com.rajohnson.KDA;
-import com.gvaneyck.rtmp.*;
-import com.google.gson.*;
 
 @SuppressWarnings("serial")
 public class StatController extends JFrame{
@@ -62,15 +56,26 @@ public class StatController extends JFrame{
 		JLabel passwordLabel = new JLabel("Password:");
 		JTextField usernameField = new JTextField();
 		JPasswordField passwordField = new JPasswordField();
+		//passwordField.addActionListener(loginButton);
 		loginDialogPanel.add(loginLabel);
 		loginDialogPanel.add(usernameField);
 		loginDialogPanel.add(passwordLabel);
 		loginDialogPanel.add(loginButton);
 		loginDialog.add(loginDialogPanel);
 		
+		HttpClient httpClient = new StdHttpClient.Builder().build();
+		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
+		CouchDbConnector db = dbInstance.createConnector("hydrophobic-stats", true);
+     	MatchRepository mr = new MatchRepository(db, "hydrophobic");
+		Vector<Match> matchesPlayed = mr.getAllMatches();
+		JList<Match> matchesList = new JList<Match>(matchesPlayed);
+		matchesList.setCellRenderer(new MatchCellRenderer<Match>());
 		
+		
+		JScrollPane matchScroller =  new JScrollPane(matchesList);
 		
 		JPanel recentMatchPanel = new JPanel();
+		recentMatchPanel.add(matchScroller);
 		JPanel championPerformancePanel = new JPanel();
 		
 		JButton updateButton = new JButton("Update History");
@@ -130,6 +135,7 @@ public class StatController extends JFrame{
         if(exceptions != null) {
             for(LeagueAccount account : exceptions.keySet())
                 System.out.println(account + " error: " + exceptions.get(account));
+            scan.close();
             return;
         }
         
@@ -147,7 +153,7 @@ public class StatController extends JFrame{
         c.getPlayerStatsService().fillMatchHistory(testSummoner);
         ArrayList<MatchHistoryEntry> recentMatches = (ArrayList<MatchHistoryEntry>) testSummoner.getMatchHistory();
         HashSet<LeagueChampion> champsPlayed = new HashSet<LeagueChampion>();
-        HashMap<LeagueChampion,KDA> champPerformance = new HashMap<LeagueChampion,KDA>();
+        
         //mw.writeMatches(recentMatches, testSummoner);
         Match matchToWrite;
         ArrayList<Match> matchesToWrite = new ArrayList<Match>();
@@ -188,6 +194,7 @@ public class StatController extends JFrame{
         }
         mr.addNewMatches(matchesToWrite);
         mr.printStatsByChampionPlayed("Doesn't matter");
+        scan.close();
         
 	}
 

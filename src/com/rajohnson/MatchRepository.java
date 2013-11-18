@@ -1,18 +1,19 @@
 package com.rajohnson;
 
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.Date;
 import java.util.List;
-import java.util.TreeSet;
+import java.util.Vector;
 
 import org.ektorp.CouchDbConnector;
 import org.ektorp.DocumentNotFoundException;
 import org.ektorp.ViewResult;
 import org.ektorp.ViewResult.Row;
 import org.ektorp.support.CouchDbRepositorySupport;
-import org.ektorp.support.View;
-@View( name = "all", map = "function(doc) { if (doc.type) emit( null, doc._id )}")
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+
 public class MatchRepository extends CouchDbRepositorySupport<Match> {
 
 	private String m_SummonerName;
@@ -36,6 +37,19 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 		{
 			add(m);
 		}
+	}
+	
+	public Vector<Match> getAllMatches()
+	{
+		ViewResult result = db.queryView(createQuery("all"));
+		ArrayList<Match> matches = new ArrayList<Match>();
+		for(Row r : result.getRows())
+		{
+			matches.add(getMatchFromRow(r));
+		}
+		
+		return new Vector<Match>(matches);
+		
 	}
 	
 	public void printStatsByChampionPlayed(String champion)
@@ -100,5 +114,38 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 		System.out.println(matchesToCheck);
 		
 		return matchesToCheck;
+	}
+	
+	private Match getMatchFromRow(Row r)
+	{
+		Match matchToReturn = new Match();
+		
+		
+		/*
+		 * gameId = 0;
+		matchmakingQueue = "Custom";
+		championPlayed = "Urf";
+		win = -1;
+		numKills = 0;
+		numAssists = 0;
+		numDeaths = 0;
+		minionsKilled = 0;
+		goldEarned = 0;
+		itemsBought = new ArrayList<Integer>(6);
+		trinket = -1;
+		datePlayed = new Date();
+		 */
+		JsonNode rNode = r.getValueAsNode();
+		
+		matchToReturn.setMatchmakingQueue(rNode.get("matchmakingQueue").textValue());
+		matchToReturn.setChampionPlayed(rNode.get("championPlayed").textValue());
+		matchToReturn.setWin(rNode.get("win").intValue());
+		matchToReturn.setNumKills(rNode.get("numKills").intValue());
+		matchToReturn.setNumDeaths(rNode.get("numDeaths").intValue());
+		matchToReturn.setNumAssists(rNode.get("numAssists").intValue());
+		matchToReturn.setMinionsKilled(rNode.get("minionsKilled").intValue());
+		matchToReturn.setGoldEarned(rNode.get("goldEarned").intValue());
+		
+		return matchToReturn;
 	}
 }
