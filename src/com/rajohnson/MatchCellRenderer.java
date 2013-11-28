@@ -1,14 +1,18 @@
 package com.rajohnson;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 
 import javax.swing.BorderFactory;
@@ -18,10 +22,7 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.ListCellRenderer;
 import javax.swing.SwingConstants;
-
-
-import com.achimala.leaguelib.models.LeagueChampion;
-import com.achimala.util.BidirectionalMap;
+import javax.swing.border.Border;
 
 import com.rajohnson.Match;
 
@@ -32,7 +33,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	
 	static {
         _champIcons = new HashMap<String,String>();
-        _champIcons.put(  null, "nope.png" ); // represents a catch-all champion for stats
+        _champIcons.put(  "none", "nope.png" ); // represents a catch-all champion for stats
         _champIcons.put(  "Annie", "res/Annie.png");
         _champIcons.put(  "Olaf", "res/Olaf.png" );
         _champIcons.put(  "Galio", "res/Galio.png");
@@ -155,33 +156,29 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	private JPanel infoPanel;
 	private JLabel killsLabel, deathsLabel, assistsLabel, CSLabel;
 	private JLabel killCount, deathCount, assistCount, CSCount;
+	private JLabel matchmakingQueueLabel;
 	private JPanel killPanel, deathPanel, assistPanel, CSPanel;
 	
 	public MatchCellRenderer() {
-		setOpaque(true);
-		setLayout(new BorderLayout());
+		setLayout(new GridBagLayout());
 		setBorder(BorderFactory.createLineBorder(Color.black));
 		champLabel = new JLabel();
-		add(champLabel, BorderLayout.LINE_START);
+		GridBagConstraints constraint = new GridBagConstraints();
+		constraint.gridx = 0;
+		constraint.gridy = 0;
+		constraint.weightx = 0;
+		constraint.weighty = 0;
+		constraint.gridwidth = 1;
+		constraint.anchor = GridBagConstraints.WEST;
+		constraint.fill = GridBagConstraints.BOTH;
+		add(champLabel, constraint);
 		//Override paintComponent so the panel is a gradient
-		infoPanel = new JPanel(){
-			@Override
-			public void paintComponent(Graphics g) {
-		        super.paintComponent(g);
-		        Graphics2D g2d = (Graphics2D) g;
-		        Color color1 = new Color(241,234,212);
-		        Color color2 = new Color(222,204,155);
-		        int w = getWidth();
-		        int h = getHeight();
-		        GradientPaint gp = new GradientPaint(
-		            0, 0, color1, 0, h, color2);
-		        g2d.setPaint(gp);
-		        g2d.fillRect(0, 0, w, h);
-		    }
-		};
+		infoPanel = new JPanel();
 		
 		//infoPanel.setBackground(new Color(22,54,103));
-		infoPanel.setLayout(new GridLayout(3,1));
+		infoPanel.setLayout(new GridBagLayout());
+		infoPanel.setOpaque(false);
+		GridBagConstraints c = new GridBagConstraints();
 		
 		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 14);
 		Font serifFont = new Font(Font.SERIF, Font.PLAIN, 14);
@@ -210,7 +207,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		
 		assistPanel = new JPanel();
 		assistPanel.setOpaque(false);
-		deathPanel.setLayout(new GridLayout(1,2));
+		assistPanel.setLayout(new GridLayout(1,2));
 		assistCount = new JLabel();
 		assistCount.setFont(serifFont);
 		assistsLabel = new JLabel("Assists: ");
@@ -220,18 +217,72 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		assistPanel.add(assistsLabel);
 		assistPanel.add(assistCount);
 		
-		infoPanel.add(killPanel);
-		infoPanel.add(deathPanel);
-		infoPanel.add(assistPanel);
+		CSPanel = new JPanel();
+		CSPanel.setOpaque(false);
+		CSPanel.setLayout(new GridLayout(1,2));
+		CSLabel = new JLabel("Minions Killed: ");
+		CSLabel.setFont(serifFontBold);
+		CSLabel.setForeground(new Color(78,112,143));
+		CSCount = new JLabel();
+		CSCount.setFont(serifFont);
+		CSPanel.add(CSLabel);
+		CSPanel.add(CSCount);
 		
-		add(infoPanel, BorderLayout.CENTER);
+		matchmakingQueueLabel = new JLabel();
+		matchmakingQueueLabel.setFont(serifFontBold);
+		matchmakingQueueLabel.setPreferredSize(new Dimension(243,19));
+		
+		c.gridx = 0;
+		c.gridy = 0;
+		c.anchor = GridBagConstraints.LINE_START;
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.gridwidth = 1;
+		infoPanel.add(matchmakingQueueLabel, c);
+		
+		c.gridy = 1;
+		infoPanel.add(killPanel,c);
+		
+		c.gridy = 2;
+		infoPanel.add(deathPanel,c);
+		
+		c.gridy = 3;
+		infoPanel.add(assistPanel,c);
+		
+		c.gridx = 1;
+		c.gridy = 1;
+		infoPanel.add(CSPanel,c);
+		
+		constraint.gridx = 1;
+		constraint.gridy = 0;
+		constraint.weightx = 1;
+		constraint.weighty = 1;
+		constraint.gridwidth = 3;
+		constraint.ipadx = 30;
+		constraint.anchor = GridBagConstraints.LINE_START;
+		constraint.fill = GridBagConstraints.VERTICAL;
+		add(infoPanel, constraint);
+		
+		
 		
 	}
 
 	@Override
+	public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2d = (Graphics2D) g;
+        Color color1 = new Color(241,234,212);
+        Color color2 = new Color(222,204,155);
+        int w = getWidth();
+        int h = getHeight();
+        GradientPaint gp = new GradientPaint(
+            0, 0, color1, 0, h, color2);
+        g2d.setPaint(gp);
+        g2d.fillRect(0, 0, w, h);
+    }
+	
+	@Override
 	public Component getListCellRendererComponent(JList<? extends E> arg0,
 			E arg1, int arg2, boolean arg3, boolean arg4) {
-		
 		if(arg1 instanceof Match)
 		{
 				Match matchSelected = (Match)arg1;
@@ -239,16 +290,92 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		
 				ImageIcon champIcon = new ImageIcon(champIconPath, matchSelected.getChampionPlayed());
 				champLabel.setIcon(champIcon);
+				Border iconOutline;
+				if(matchSelected.getWin() == 1)
+				{
+					iconOutline = BorderFactory.createLineBorder(Color.GREEN);
+					champLabel.setBorder(iconOutline);
+				}
+				else if(matchSelected.getWin() == 0)
+				{
+					iconOutline = BorderFactory.createLineBorder(Color.RED);
+					champLabel.setBorder(iconOutline);
+				}
+				infoPanel.setOpaque(false);
 		
 				killCount.setText(Integer.toString(matchSelected.getNumKills()));
 				deathCount.setText(Integer.toString(matchSelected.getNumDeaths()));
 				assistCount.setText(Integer.toString(matchSelected.getNumAssists()));
+				CSCount.setText(Integer.toString(matchSelected.getMinionsKilled()));
+				matchmakingQueueLabel.setText(fromInternalToReadableMMQueueName(matchSelected.getMatchmakingQueue()));
 				
 		}
 		
 		
 		
 		return this;
+	}
+	
+	/**
+	 * Takes the string representation of a matchmaking queue enumeration and returns a human-friendly version. 
+	 * @param internalQueueName
+	 * @return
+	 */
+	private String fromInternalToReadableMMQueueName(String internalQueueName)
+	{
+		String externalQueueName = "";
+		
+		if(internalQueueName.equals("ARAM_UNRANKED_5x5"))
+		{
+			externalQueueName = "Howling Abyss";
+		}
+		else if(internalQueueName.equals("ODIN_UNRANKED"))
+		{
+			externalQueueName = "Dominion";
+		}
+		else if(internalQueueName.equals("BOT"))
+		{
+			externalQueueName = "Summoner's Rift (Bot)";
+		}
+		else if(internalQueueName.equals("NORMAL"))
+		{
+			externalQueueName = "Summoner's Rift (Normal)";
+		}
+		else if(internalQueueName.equals("RANKED_SOLO_5x5"))
+		{
+			externalQueueName = "Summoner's Rift (Ranked Solo Queue)";
+		}
+		else if(internalQueueName.equals("RANKED_TEAM_3x3"))
+		{
+			externalQueueName = "Twisted Treeline (Ranked Team Queue)";
+		}
+		else if(internalQueueName.equals("RANKED_TEAM_5x5"))
+		{
+			externalQueueName = "Summoner's Rift (Ranked Team Queue)";
+		}
+		else if(internalQueueName.equals("NORMAL_3x3"))
+		{
+			externalQueueName = "Twisted Treeline (Normal)";
+		}
+		else if(internalQueueName.equals("BOT_3x3"))
+		{
+			externalQueueName = "Twisted Treeline (Bot)";
+		}
+		else
+		{
+			externalQueueName = "Gametype Not Found";
+		}
+		return externalQueueName;
+	}
+	
+	public static Map<String, String> getChampionIconMap()
+	{
+		return Collections.unmodifiableMap(_champIcons);
+	}
+	
+	public static String getChampIconByName(String champName)
+	{
+		return _champIcons.get(champName);
 	}
 
 }
