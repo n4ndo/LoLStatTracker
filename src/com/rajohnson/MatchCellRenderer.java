@@ -10,6 +10,7 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +31,10 @@ import com.rajohnson.Match;
 public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> {
 
 	private static HashMap<String, String> _champIcons;
-	
+	public static enum CellSize
+	{
+		SMALL, MEDIUM, LARGE;
+	}
 	static {
         _champIcons = new HashMap<String,String>();
         _champIcons.put(  "none", "nope.png" ); // represents a catch-all champion for stats
@@ -154,15 +158,34 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	
 	private JLabel champLabel;
 	private JPanel infoPanel;
-	private JLabel killsLabel, deathsLabel, assistsLabel, CSLabel;
+	private JLabel killsLabel, deathsLabel, assistsLabel, CSLabel, datePlayedLabel;
 	private JLabel killCount, deathCount, assistCount, CSCount;
+	private JLabel datePlayed;
 	private JLabel matchmakingQueueLabel;
-	private JPanel killPanel, deathPanel, assistPanel, CSPanel;
+	private JPanel killPanel, deathPanel, assistPanel, CSPanel, datePlayedPanel;
 	
-	public MatchCellRenderer() {
+	public MatchCellRenderer(CellSize size) {
 		setLayout(new GridBagLayout());
 		setBorder(BorderFactory.createLineBorder(Color.black));
 		champLabel = new JLabel();
+		
+		int fontSize = 0;
+		switch(size)
+		{
+		case SMALL:
+			fontSize = 12;
+			break;
+		case MEDIUM:
+			fontSize = 14;
+			break;
+		case LARGE:
+			fontSize = 16;
+			break;
+		default:
+			fontSize = 10;
+				
+		}
+		
 		GridBagConstraints constraint = new GridBagConstraints();
 		constraint.gridx = 0;
 		constraint.gridy = 0;
@@ -180,8 +203,8 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		infoPanel.setOpaque(false);
 		GridBagConstraints c = new GridBagConstraints();
 		
-		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 14);
-		Font serifFont = new Font(Font.SERIF, Font.PLAIN, 14);
+		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, fontSize);
+		Font serifFont = new Font(Font.SERIF, Font.PLAIN, fontSize);
 		
 		killPanel = new JPanel();
 		killPanel.setOpaque(false);
@@ -232,6 +255,17 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		matchmakingQueueLabel.setFont(serifFontBold);
 		matchmakingQueueLabel.setPreferredSize(new Dimension(243,19));
 		
+		datePlayedPanel = new JPanel();
+		datePlayedPanel.setOpaque(false);
+		datePlayedLabel = new JLabel("Date: ");
+		datePlayedLabel.setFont(serifFontBold);
+		datePlayedLabel.setForeground(new Color(78,112,143));
+		datePlayed = new JLabel();
+		datePlayed.setFont(serifFont);
+		datePlayedPanel.add(datePlayedLabel);
+		datePlayedPanel.add(datePlayed);
+		
+		
 		c.gridx = 0;
 		c.gridy = 0;
 		c.anchor = GridBagConstraints.LINE_START;
@@ -251,6 +285,9 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		c.gridx = 1;
 		c.gridy = 1;
 		infoPanel.add(CSPanel,c);
+		
+		c.gridy = 2;
+		infoPanel.add(datePlayedPanel, c);
 		
 		constraint.gridx = 1;
 		constraint.gridy = 0;
@@ -308,6 +345,8 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 				assistCount.setText(Integer.toString(matchSelected.getNumAssists()));
 				CSCount.setText(Integer.toString(matchSelected.getMinionsKilled()));
 				matchmakingQueueLabel.setText(fromInternalToReadableMMQueueName(matchSelected.getMatchmakingQueue()));
+				SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mma z");
+				datePlayed.setText(dateFormat.format(matchSelected.getDate()));
 				
 		}
 		
@@ -360,6 +399,10 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		else if(internalQueueName.equals("BOT_3x3"))
 		{
 			externalQueueName = "Twisted Treeline (Bot)";
+		}
+		else if(internalQueueName.equals("ONEFORALL_5x5"))
+		{
+			externalQueueName = "One For All";
 		}
 		else
 		{

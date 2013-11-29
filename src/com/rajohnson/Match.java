@@ -34,7 +34,7 @@ public class Match extends CouchDbDocument{
 		goldEarned = 0;
 		itemsBought = new ArrayList<Integer>(6);
 		trinket = -1;
-		datePlayed = new Date();
+		datePlayed = new Date(0);
 	}
 	
 	/**

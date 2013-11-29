@@ -1,5 +1,7 @@
 package com.rajohnson;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +19,13 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 
 	private String m_SummonerName;
 	private boolean initialized = false;
+	private static SimpleDateFormat dbDateFormat;
+	
+	//All matches should use the exact same date format, so only one date format needs to be created.
+	static
+	{
+		dbDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'.'SSSZ");
+	}
 	
 	public MatchRepository(CouchDbConnector connector, String summonerName)
 	{
@@ -154,8 +163,23 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 		matchToReturn.setNumAssists(rNode.get("numAssists").intValue());
 		matchToReturn.setMinionsKilled(rNode.get("minionsKilled").intValue());
 		matchToReturn.setGoldEarned(rNode.get("goldEarned").intValue());
-		// In future version I will need to get this to parse correctly. 
-		//matchToReturn.setDate(rNode.get("date").)
+		if(rNode.has("date"))
+		{
+			String dateString = rNode.get("date").textValue();
+			if (dateString.length() == 0)
+			{
+				System.out.println("This was a match without a date assigned when it originally was created.");
+			}
+			else
+			{
+				try {
+					matchToReturn.setDate(dbDateFormat.parse(dateString));
+				} catch (ParseException e) {
+					System.err.println("The date received from the database was in an unexpected format: " + dateString);
+					e.printStackTrace();
+				}
+			}
+		}
 		
 		return matchToReturn;
 	}
@@ -192,5 +216,23 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 	public String getSummonerName()
 	{
 		return m_SummonerName;
+	}
+	
+	/**
+	 * Creates a list of the {@code Match}es played where the summoner used the champion {@code champName}
+	 * @param champName The champion for which the matches are played. 
+	 * @return A list of matches played by the champion {@code champName}.
+	 */
+	public List<Match> getMatchesByChampionPlayed(String champName)
+	{
+		ViewResult result = db.queryView(createQuery("by_championPlayed").key(champName));
+		
+		ArrayList<Match> matchesForChampion = new ArrayList<Match>();
+		for(Row r : result.getRows())
+		{
+			matchesForChampion.add(getMatchFromRow(r));
+		}
+		
+		return matchesForChampion;
 	}
 }

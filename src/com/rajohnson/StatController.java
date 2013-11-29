@@ -8,6 +8,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.GradientPaint;
 import java.awt.Graphics;
@@ -17,7 +18,13 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.text.DecimalFormat;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.Vector;
@@ -58,6 +65,7 @@ public class StatController extends JFrame implements ActionListener{
 	private String currentSummoner = "Hydrophobic";
 	private JList<Match> matchesList;
 	private DefaultListModel<Match> matchListModel;
+	private JTabbedPane mainWindow;
 	
 	/**
 	 * Default constructor.
@@ -70,7 +78,7 @@ public class StatController extends JFrame implements ActionListener{
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setPreferredSize(new Dimension(948,800));
 		
-		JTabbedPane mainWindow = new JTabbedPane(JTabbedPane.LEFT);
+		mainWindow = new JTabbedPane(JTabbedPane.LEFT);
 		
 		HttpClient httpClient = new StdHttpClient.Builder().build();
 		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
@@ -84,7 +92,7 @@ public class StatController extends JFrame implements ActionListener{
 			matchListModel.addElement(m);
 		}
 		matchesList = new JList<Match>(matchListModel);
-		matchesList.setCellRenderer(new MatchCellRenderer<Match>());
+		matchesList.setCellRenderer(new MatchCellRenderer<Match>(MatchCellRenderer.CellSize.MEDIUM));
 		JScrollPane matchScroller =  new JScrollPane(matchesList);
 		matchScroller.setOpaque(false);
 		
@@ -150,11 +158,46 @@ public class StatController extends JFrame implements ActionListener{
 			logonAndUpdate();
 			loginDialog.setVisible(false);
 		}
+		else if(isInteger(e.getActionCommand()))
+		{
+			mainWindow.removeTabAt(Integer.parseInt(e.getActionCommand()));
+		}
 		else
 		{
 			if(mr.isRepoConnected())
 			{
 				mr.printStatsByChampionPlayed(e.getActionCommand());
+				JPanel newChampPanel = createCloseableChampPerfTab(e.getActionCommand());
+				if(mainWindow.indexOfTab(e.getActionCommand()) == -1)
+				{
+					//Construct the champion performance panel and give it a button to close the tab. 
+					mainWindow.addTab(e.getActionCommand(), newChampPanel);
+					JPanel champTabPanel = new JPanel(new GridBagLayout());
+					GridBagConstraints c = new GridBagConstraints();
+					JLabel champLabel = new JLabel(e.getActionCommand());
+					JButton closeTabButton = new JButton("x");
+					closeTabButton.setBorder(null);
+					closeTabButton.setPreferredSize(new Dimension(15,15));
+					int indexOfTab = mainWindow.indexOfTab(e.getActionCommand());
+					closeTabButton.setActionCommand(Integer.toString(indexOfTab));
+					closeTabButton.addActionListener(this);
+					closeTabButton.setOpaque(false);
+					//closeTabButton.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+					c.anchor = GridBagConstraints.LINE_START;
+					c.gridx = 0;
+					c.gridy = 0;
+					c.weightx = 1.0;
+					c.fill = GridBagConstraints.HORIZONTAL;
+					champLabel.setOpaque(false);
+					champTabPanel.add(champLabel,c);
+					
+					c.anchor = GridBagConstraints.LINE_END;
+					c.gridx = 1;
+					c.gridy = 0;
+					champTabPanel.add(closeTabButton, c);
+					champTabPanel.setOpaque(false);
+					mainWindow.setTabComponentAt(indexOfTab,champTabPanel);
+				}
 			}
 			else
 			{
@@ -181,7 +224,6 @@ public class StatController extends JFrame implements ActionListener{
 		
 		HttpClient httpClient = new StdHttpClient.Builder().build();
 		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		
 		
 		/*String username, pword, summonerName;
 		System.out.print("Enter your login name: ");
@@ -265,7 +307,7 @@ public class StatController extends JFrame implements ActionListener{
 	
 	/**
 	 * Creates the JPanel of buttons with each champion's icon that is used to bring up a player's performance with an individual champion.
-	 * @return A 
+	 * @return A JPanel full of buttons that have a champion's icon on them. The buttons have an action listener with the name of their individual champion. 
 	 */
 	private JPanel addChampIconsToChampPerformance()
 	{
@@ -449,63 +491,280 @@ public class StatController extends JFrame implements ActionListener{
 		loginDialog.add(loginDialogPanel);
 	}
 	
-	protected class PasswordDialog extends JDialog implements ActionListener
+	private JPanel createCloseableChampPerfTab(String championName)
 	{
-
-		protected JTextField usernameField;
-		JPasswordField passwordField;
-		public PasswordDialog(Frame owner, String title)
-		{
-			super(owner, title);
-			
-		}
-		@Override
-		public void actionPerformed(ActionEvent e) {
-			if(e.getActionCommand().equals("logon"))
-			{
-				//Get a league connection
-				final LeagueConnection c = new LeagueConnection(LeagueServer.NORTH_AMERICA);
-				try {
-					c.getAccountQueue().addAccount(new LeagueAccount(LeagueServer.NORTH_AMERICA, "3.14.xx", usernameField.getText(),
-							new String(passwordField.getPassword())));
-				} catch (LeagueException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				
-				//Connect 
-				Map<LeagueAccount, LeagueException> exceptions = c.getAccountQueue().connectAll();
-		        if(exceptions != null) {
-		            for(LeagueAccount account : exceptions.keySet())
-		                System.out.println(account + " error: " + exceptions.get(account));
-		            return;
+		JPanel champPerformancePanel = new JPanel(){
+			@Override
+			public void paintComponent(Graphics g) {
+		        super.paintComponent(g);
+		        Graphics2D g2d = (Graphics2D) g;
+		        Color color1 = new Color(241,234,212);
+			    Color color2 = new Color(222,204,155);
+			    int w = getWidth();
+			    int h = getHeight();
+			    GradientPaint gp = new GradientPaint(
+			        0, 0, color1, 0, h, color2);
+			    g2d.setPaint(gp);
+			    g2d.fillRect(0, 0, w, h);
+			}
+		};
+	
+		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 14);
+		Font serifFont = new Font(Font.SERIF, Font.PLAIN, 14);
+		champPerformancePanel.setLayout(new GridBagLayout());
+		ArrayList<Match> matchesForChamp = (ArrayList<Match>)mr.getMatchesByChampionPlayed(championName);
+		
+		//Sort this champ's matches by game
+		Collections.sort(matchesForChamp, new Comparator<Match>(){
+			@Override
+		    public int compare(Match o1, Match o2) {
+				//If the date of o1 is 0, then it has no date and should be sorted after
+		        if(o1.getDate().compareTo(new Date(0)) == 0)
+		        {
+		        	return -1;
 		        }
-		        
-		        //Get summoner info by summoner name, get recent matches and write them to the database. 
-		        LeagueSummoner testSummoner;
-		        String summonerName = "Hydrophobic";
-				try {
-					testSummoner = c.getSummonerService().getSummonerByName(summonerName);
-					c.getPlayerStatsService().fillMatchHistory(testSummoner);
-			        ArrayList<MatchHistoryEntry> recentMatches = (ArrayList<MatchHistoryEntry>) testSummoner.getMatchHistory();
-			        HttpClient httpClient = new StdHttpClient.Builder().build();
-		    		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		    		String dbname = summonerName + "-stats";
-		         	CouchDbConnector db = dbInstance.createConnector(dbname, true);
-		         	MatchRepository mr = new MatchRepository(db, summonerName);
-		         	
-			        JFrame owner = (JFrame) getOwner();
-			        if(owner instanceof StatController)
-			        {
-			        	ArrayList<Match> mostRecentMatches = ((StatController)owner).getMatchesToWrite(recentMatches, testSummoner);
-			         	mr.addNewMatches(mostRecentMatches);
-			        }
-			        
-				} catch (LeagueException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-			}	
-		}	
+		        //Date o1 has a date. If o2 has no date then it should be placed after o1
+		        else if(o2.getDate().compareTo(new Date(0)) == 0)
+		        {
+		        	return 1;
+		        }
+		        //Else use the compareTo method already defined by date to determine the correct ordering.
+		        else
+		        {
+		        	return o1.getDate().compareTo(o2.getDate());
+		        }
+		    }
+		});
+		//The dates are sorted in ascending order. Reverse them so they are in descending order. 
+		Collections.reverse(matchesForChamp);
+		
+		//Create the champ icon
+		ImageIcon champIcon = new ImageIcon(MatchCellRenderer.getChampIconByName(championName));
+		GridBagConstraints c = new GridBagConstraints();
+		c.gridx=0;
+		c.gridy=0;
+		JLabel champIconLabel = new JLabel(champIcon);
+		champPerformancePanel.add(champIconLabel, c);
+		
+		JLabel championWinPercentageLabel = new JLabel("Win Percentage: ");
+		championWinPercentageLabel.setFont(serifFontBold);
+		c.gridy=1;
+		champPerformancePanel.add(championWinPercentageLabel, c);
+		
+		DecimalFormat dformat = new DecimalFormat("##0.00");
+		JLabel championWinRate = new JLabel(dformat.format(winRateAsPercent(matchesForChamp)) + "%");
+		championWinRate.setFont(serifFont);
+		c.gridx=1;
+		champPerformancePanel.add(championWinRate, c);
+		
+		JPanel champStatPanel = new JPanel();
+		champStatPanel.setLayout(new GridBagLayout());
+		champStatPanel.setOpaque(false);
+		
+		//Create the label "Kills: #kills"
+		JPanel killPanel = new JPanel();
+		killPanel.setOpaque(false);
+		JLabel killLabel = new JLabel("Kills: ");
+		killLabel.setFont(serifFontBold);
+		JLabel killCount = new JLabel(dformat.format(calculateKillsPerMatch(matchesForChamp)));
+		killCount.setFont(serifFont);
+		killPanel.add(killLabel);
+		killPanel.add(killCount);
+		c.gridx=0;
+		c.gridy=0;
+		champStatPanel.add(killPanel, c);
+		
+		//Create the label "Assists: #assists"
+		JPanel assistPanel = new JPanel();
+		assistPanel.setOpaque(false);
+		JLabel assistLabel = new JLabel("Assists: ");
+		assistLabel.setFont(serifFontBold);
+		JLabel assistCount = new JLabel(dformat.format(calculateAssistsPerMatch(matchesForChamp)));
+		assistCount.setFont(serifFont);
+		assistPanel.add(assistLabel);
+		assistPanel.add(assistCount);
+		c.gridy=2;
+		champStatPanel.add(assistPanel, c);
+		
+		//Create the label "Deaths: #deaths"
+		JPanel deathPanel = new JPanel();
+		deathPanel.setOpaque(false);
+		JLabel deathLabel = new JLabel("Deaths: ");
+		deathLabel.setFont(serifFontBold);
+		JLabel deathCount = new JLabel(dformat.format(calculateDeathsPerMatch(matchesForChamp)));
+		deathCount.setFont(serifFont);
+		deathPanel.add(deathLabel);
+		deathPanel.add(deathCount);
+		c.gridy=1;
+		champStatPanel.add(deathPanel, c);
+		
+		//Create the label "Minions Killed: #minions killed"
+		JPanel minionKillPanel = new JPanel();
+		minionKillPanel.setOpaque(false);
+		JLabel minionKillLabel = new JLabel("Minions Killed: ");
+		minionKillLabel.setFont(serifFontBold);
+		JLabel minionKillCount = new JLabel(dformat.format(calculateMinionKillsPerMatch(matchesForChamp)));
+		minionKillCount.setFont(serifFont);
+		minionKillPanel.add(minionKillLabel);
+		minionKillPanel.add(minionKillCount);
+		c.gridx=1;
+		c.gridy=0;
+		champStatPanel.add(minionKillPanel, c);
+		
+		//Add the champion average stats to the overall JPanel
+		c.gridx=2;
+		c.gridy=2;
+		c.fill = GridBagConstraints.HORIZONTAL;
+		champPerformancePanel.add(champStatPanel, c);
+		
+		//Create a scroll pane of all the matches played on this champion that are stored in the database.
+		DefaultListModel<Match> champMatchListModel = new DefaultListModel<Match>();
+		for(Match m : matchesForChamp)
+		{
+			champMatchListModel.addElement(m);
+		}
+		JList<Match> champMatchList = new JList<Match>(champMatchListModel);
+		champMatchList.setCellRenderer(new MatchCellRenderer<Match>(MatchCellRenderer.CellSize.SMALL));
+		JScrollPane champMatchScrollPane = new JScrollPane(champMatchList);
+		champMatchScrollPane.setOpaque(false);
+		champMatchScrollPane.getViewport().setOpaque(false);
+		c.gridy=3;
+		c.fill = GridBagConstraints.BOTH;
+		c.weightx = 0.75;
+		c.weighty = 0.75;
+		champPerformancePanel.add(champMatchScrollPane, c);
+		
+		return champPerformancePanel;
+	}
+	
+	/**
+	 * Takes an {@code ArrayList} of matches and returns the percentage of games that are victorious.
+	 * @param matches The list of matches to check.
+	 * @return A double value which is the percentage of victories in {@code matches}
+	 */
+	private double winRateAsPercent(ArrayList<Match> matches)
+	{
+		int gamesWon = 0;
+		int gamesTotal = 0;
+		for(Match m : matches)
+		{
+			if(m.getWin() == 1)
+			{
+				gamesWon++;
+			}
+			gamesTotal++;
+		}
+		
+		if(gamesTotal < 1)
+		{
+			return 0;
+		}
+		else
+		{
+			return (gamesWon/(double)gamesTotal)*100;
+		}
+	}
+	
+	/**
+	 * Takes an {@code ArrayList} of matches and returns the average number of kills per game.
+	 * @param matches The list of matches to check.
+	 * @return A double value which is the average amount of kills per  {@link Match}
+	 */
+	private double calculateKillsPerMatch(ArrayList<Match> matches)
+	{
+		int killsTotal = 0;
+		int gamesTotal = 0;
+		for(Match m : matches)
+		{
+			killsTotal += m.getNumKills();
+			gamesTotal++;
+		}
+		if(gamesTotal < 1)
+		{
+			return 0;
+		}
+		else
+		{
+			return killsTotal/(double)gamesTotal;
+		}
+	}
+	/**
+	 * Takes an {@code ArrayList} of matches and returns the average number of assists per game.
+	 * @param matches The list of matches to check.
+	 * @return A double value which is the average amount of assists per  {@link Match}
+	 */
+	private double calculateAssistsPerMatch(ArrayList<Match> matches)
+	{
+		int assistsTotal = 0;
+		int gamesTotal = 0;
+		for(Match m : matches)
+		{
+			assistsTotal += m.getNumAssists();
+			gamesTotal++;
+		}
+		if(gamesTotal < 1)
+		{
+			return 0;
+		}
+		else
+		{
+			return assistsTotal/(double)gamesTotal;
+		}
+	}
+	/**
+	 * Takes an {@code ArrayList} of matches and returns the average number of deaths per game.
+	 * @param matches The list of matches to check.
+	 * @return A double value which is the average amount of deaths per  {@link Match}
+	 */
+	private double calculateDeathsPerMatch(ArrayList<Match> matches)
+	{
+		int deathsTotal = 0;
+		int gamesTotal = 0;
+		for(Match m : matches)
+		{
+			deathsTotal += m.getNumDeaths();
+			gamesTotal++;
+		}
+		if(gamesTotal < 1)
+		{
+			return 0;
+		}
+		else
+		{
+			return deathsTotal/(double)gamesTotal;
+		}
+	}
+	/**
+	 * Takes an {@code ArrayList} of matches and returns the average number of minion kills per game.
+	 * @param matches The list of matches to check.
+	 * @return A double value which is the average amount of minion kills per  {@link Match}
+	 */
+	private double calculateMinionKillsPerMatch(ArrayList<Match> matches)
+	{
+		int minionKillsTotal = 0;
+		int gamesTotal = 0;
+		for(Match m : matches)
+		{
+			minionKillsTotal += m.getMinionsKilled();
+			gamesTotal++;
+		}
+		if(gamesTotal < 1)
+		{
+			return 0;
+		}
+		else
+		{
+			return minionKillsTotal/(double)gamesTotal;
+		}
+	}
+	
+	private boolean isInteger(String s)
+	{
+		try { 
+	        Integer.parseInt(s); 
+	    } catch(NumberFormatException e) { 
+	        return false; 
+	    }
+	    return true;
 	}
 }
