@@ -6,6 +6,7 @@ import org.ektorp.http.*;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -16,8 +17,11 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.LayoutManager;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.text.DecimalFormat;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
@@ -25,14 +29,21 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 import java.util.TreeSet;
 import java.util.Vector;
 
+import javax.swing.AbstractButton;
+import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -43,6 +54,9 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.ListModel;
+import javax.swing.SwingConstants;
+import javax.swing.border.Border;
+import javax.swing.border.EtchedBorder;
 
 import com.achimala.leaguelib.connection.LeagueAccount;
 import com.achimala.leaguelib.connection.LeagueConnection;
@@ -50,6 +64,7 @@ import com.achimala.leaguelib.connection.LeagueServer;
 import com.achimala.leaguelib.errors.LeagueException;
 import com.achimala.leaguelib.models.LeagueChampion;
 import com.achimala.leaguelib.models.LeagueSummoner;
+import com.achimala.leaguelib.models.LeagueMatchmakingQueue;
 import com.achimala.leaguelib.models.MatchHistoryEntry;
 import com.achimala.leaguelib.models.MatchHistoryStatType;
 
@@ -66,6 +81,7 @@ public class StatController extends JFrame implements ActionListener{
 	private JList<Match> matchesList;
 	private DefaultListModel<Match> matchListModel;
 	private JTabbedPane mainWindow;
+	private static final int MatchmakingQueueLength = LeagueMatchmakingQueue.values().length;
 	
 	/**
 	 * Default constructor.
@@ -162,7 +178,7 @@ public class StatController extends JFrame implements ActionListener{
 		{
 			mainWindow.removeTabAt(Integer.parseInt(e.getActionCommand()));
 		}
-		else
+		else 
 		{
 			if(mr.isRepoConnected())
 			{
@@ -182,18 +198,18 @@ public class StatController extends JFrame implements ActionListener{
 					closeTabButton.setActionCommand(Integer.toString(indexOfTab));
 					closeTabButton.addActionListener(this);
 					closeTabButton.setOpaque(false);
-					//closeTabButton.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-					c.anchor = GridBagConstraints.LINE_START;
+					c.anchor = GridBagConstraints.WEST;
 					c.gridx = 0;
 					c.gridy = 0;
-					c.weightx = 1.0;
+					//c.weightx = 1.0;
 					c.fill = GridBagConstraints.HORIZONTAL;
 					champLabel.setOpaque(false);
 					champTabPanel.add(champLabel,c);
 					
-					c.anchor = GridBagConstraints.LINE_END;
+					c.anchor = GridBagConstraints.EAST;
 					c.gridx = 1;
 					c.gridy = 0;
+					c.fill = GridBagConstraints.HORIZONTAL;
 					champTabPanel.add(closeTabButton, c);
 					champTabPanel.setOpaque(false);
 					mainWindow.setTabComponentAt(indexOfTab,champTabPanel);
@@ -623,6 +639,7 @@ public class StatController extends JFrame implements ActionListener{
 		{
 			champMatchListModel.addElement(m);
 		}
+		System.out.println("Create model champ match list model size: " + champMatchListModel.getSize());
 		JList<Match> champMatchList = new JList<Match>(champMatchListModel);
 		champMatchList.setCellRenderer(new MatchCellRenderer<Match>(MatchCellRenderer.CellSize.SMALL));
 		JScrollPane champMatchScrollPane = new JScrollPane(champMatchList);
@@ -633,8 +650,17 @@ public class StatController extends JFrame implements ActionListener{
 		c.weightx = 0.75;
 		c.weighty = 0.75;
 		champPerformancePanel.add(champMatchScrollPane, c);
-		
+		//TODO: HAVE MATCHCHECKPANEL TAKE THE DEFAULTLISTMODEL SO I CAN WORK ON IT DIRECTLY.  
+		MatchCheckPanel checkboxPanel = new MatchCheckPanel(championName, matchesForChamp, champMatchScrollPane, this);
+		c.gridx=2;
+		c.gridy=0;
+		champPerformancePanel.add(checkboxPanel,c);
 		return champPerformancePanel;
+	}
+	
+	public void updateStatPanelWithMatches(String championName, ArrayList<Match> matchesPlayedOnChamp)
+	{
+		
 	}
 	
 	/**
@@ -766,5 +792,223 @@ public class StatController extends JFrame implements ActionListener{
 	        return false; 
 	    }
 	    return true;
+	}
+	
+	private class MatchCheckPanel extends JPanel implements ItemListener
+	{
+
+		private String m_ChampName;
+		private JCheckBox bot5v5Box, bot3v3Box, normal5v5Box, normal3v3Box;
+		private JCheckBox aramBox, rankedSoloBox, ranked5v5Box, ranked3v3Box;
+		private JCheckBox oneForAllBox, dominionBox;
+		HashSet<String> matchesToShow;
+		private String bot5v5, bot3v3, normal5v5, normal3v3;
+		private String aram,rankedSolo,ranked5v5,ranked3v3;
+		private String oneForAll, dominion;
+		private ArrayList<Match> matchesForChamp;
+		private JScrollPane matchScrollPane;
+		private StatController parent;
+		
+		
+		public MatchCheckPanel(LayoutManager layout, String champName, List<Match> champGames, JScrollPane champScrollPane)
+		{
+			super(layout);
+			m_ChampName = champName;
+			matchesToShow = new HashSet<String>();
+			setOpaque(false);
+			matchesForChamp = (ArrayList<Match>)champGames;
+			matchScrollPane = champScrollPane;
+		}
+		
+		public MatchCheckPanel(String champName, List<Match> champGames, JScrollPane champScrollPane, StatController sc)
+		{
+			super(new GridBagLayout());
+			setOpaque(false);
+			parent = sc;
+			bot5v5 = LeagueMatchmakingQueue.BOT.toString();
+			bot3v3 = LeagueMatchmakingQueue.BOT_3x3.toString();
+			normal5v5 = LeagueMatchmakingQueue.NORMAL.toString();
+			normal3v3 = LeagueMatchmakingQueue.NORMAL_3x3.toString();
+			aram = LeagueMatchmakingQueue.ARAM_UNRANKED_5x5.toString();
+			rankedSolo = LeagueMatchmakingQueue.RANKED_SOLO_5x5.toString();
+			ranked5v5 = LeagueMatchmakingQueue.RANKED_TEAM_5x5.toString();
+			ranked3v3 = LeagueMatchmakingQueue.RANKED_TEAM_3x3.toString();
+			oneForAll = LeagueMatchmakingQueue.ONEFORALL_5x5.toString();
+			dominion = LeagueMatchmakingQueue.ODIN_UNRANKED.toString();
+			matchesForChamp = (ArrayList<Match>)champGames;
+			matchScrollPane = champScrollPane;
+			Border etchedBorder = BorderFactory.createEtchedBorder(EtchedBorder.LOWERED);
+			setBorder(etchedBorder);
+			
+			m_ChampName = champName;
+			matchesToShow = new HashSet<String>();
+			matchesToShow.add(bot5v5);
+			matchesToShow.add(bot3v3);
+			matchesToShow.add(normal5v5);
+			matchesToShow.add(normal3v3);
+			matchesToShow.add(aram);
+			matchesToShow.add(rankedSolo);
+			matchesToShow.add(ranked5v5);
+			matchesToShow.add(ranked3v3);
+			matchesToShow.add(oneForAll);
+			matchesToShow.add(dominion);
+			
+			Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 12);
+			Font serifFont = new Font(Font.SERIF, Font.PLAIN, 12);
+			
+			bot5v5Box = new JCheckBox();
+			createBoxAndLabel(0, 0, "Summoner's Rift (Bot)", bot5v5Box);
+
+			bot3v3Box = new JCheckBox();
+			createBoxAndLabel(2,0,"Twisted Treeline (Bot)", bot3v3Box);
+			
+			normal5v5Box = new JCheckBox();
+			createBoxAndLabel(0,1,"Summoner's Rift (Normal)",normal5v5Box);
+			
+			normal3v3Box = new JCheckBox();
+			createBoxAndLabel(2,1,"Twisted Treeline (Normal)",normal3v3Box);
+			
+			aramBox = new JCheckBox();
+			createBoxAndLabel(0,2,"Howling Abyss", aramBox);
+			
+			rankedSoloBox = new JCheckBox();
+			createBoxAndLabel(2,2,"Summoner's Rift (Ranked Solo Queue)",rankedSoloBox);
+			
+			ranked5v5Box = new JCheckBox();
+			createBoxAndLabel(0,3,"Summoner's Rift (Ranked Team Queue)",ranked5v5Box);
+			
+			ranked3v3Box = new JCheckBox();
+			createBoxAndLabel(2,3,"Twisted Treeline (Ranked Team Queue)",ranked3v3Box);
+			
+			oneForAllBox = new JCheckBox();
+			createBoxAndLabel(0,4,"One For All (Summoner's Rift)",oneForAllBox);
+			
+			dominionBox = new JCheckBox();
+			createBoxAndLabel(2,4,"Dominion",dominionBox);
+			
+		}
+		
+		private void createBoxAndLabel(int startX, int startY, String matchmakingQueueName, JCheckBox checkBoxToUse)
+		{
+			GridBagConstraints c = new GridBagConstraints();
+			Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 12);
+			
+			JLabel queueLabel = new JLabel(matchmakingQueueName);
+			queueLabel.setHorizontalAlignment(SwingConstants.LEFT);
+			queueLabel.setFont(serifFontBold);
+			checkBoxToUse.setSelected(true);
+			checkBoxToUse.setOpaque(false);
+			checkBoxToUse.addItemListener(this);
+			c.gridx=startX;
+			c.gridy=startY;
+			c.anchor=GridBagConstraints.WEST;
+			add(queueLabel,c);
+			c.gridx=startX+1;
+			add(checkBoxToUse,c);
+		}
+		
+		@Override
+		public void itemStateChanged(ItemEvent arg0) {
+			Object boxSelected = arg0.getItem();
+			int startSize = matchesToShow.size();
+			if(boxSelected == bot5v5Box)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,bot5v5);
+			}
+			else if(boxSelected == bot3v3Box)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,bot3v3);
+			}
+			else if(boxSelected == normal5v5Box)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,normal5v5);
+			}
+			else if(boxSelected == normal3v3Box)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,normal5v5);
+			}
+			else if(boxSelected == aramBox)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,aram);
+			}
+			else if(boxSelected == rankedSoloBox)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,rankedSolo);
+			}
+			else if(boxSelected == ranked5v5Box)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,ranked5v5);
+			}
+			else if(boxSelected == ranked3v3Box)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,ranked3v3);
+			}
+			else if(boxSelected == oneForAllBox)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,oneForAll);
+			}
+			else if(boxSelected == dominionBox)
+			{
+				addOrRemoveMatch(arg0,matchesToShow,dominion);
+			}
+			
+			int tabIndex = mainWindow.indexOfTab(m_ChampName);
+			JPanel champPerfPanel = (JPanel)mainWindow.getComponent(tabIndex);
+			int componentCount = champPerfPanel.getComponentCount();
+			if(matchesToShow.size() <= startSize)
+			{
+				removeMatchesFromView(matchScrollPane,matchesToShow);
+			}
+			else
+			{
+				addMatchesToView(matchScrollPane, matchesToShow);
+			}
+		}
+		private void addOrRemoveMatch(ItemEvent e, HashSet<String> matchSet, String matchmakingQueue)
+		{
+			if(e.getStateChange() == ItemEvent.DESELECTED)
+			{
+				matchSet.remove(matchmakingQueue);
+			}
+			else
+			{
+				matchSet.add(matchmakingQueue);
+			}
+		}
+		@SuppressWarnings("unchecked")
+		private void removeMatchesFromView(JScrollPane matchPane, HashSet<String> matchesToShow)
+		{
+			// Get the list model.
+			DefaultListModel<Match> matchList = (DefaultListModel<Match>) ((JList<Match>)(matchPane.getViewport().getComponent(0))).getModel();
+			for(int i = 0; i < matchList.getSize(); )
+			{
+				Match currentMatch = matchList.get(i);
+				if(!matchesToShow.contains(currentMatch.getMatchmakingQueue()))
+				{
+					matchList.removeElementAt(i);
+				}
+				else
+				{
+					i++;
+				}
+			}
+		}
+		
+		@SuppressWarnings("unchecked")
+		private void addMatchesToView(JScrollPane matchPane, HashSet<String> matchesToShow)
+		{
+			DefaultListModel<Match> matchList = (DefaultListModel<Match>) ((JList<Match>)(matchPane.getViewport().getComponent(0))).getModel();
+			matchList.removeAllElements();
+			for(Match m : matchesForChamp)
+			{
+				if(matchesToShow.contains(m.getMatchmakingQueue()))
+				{
+					matchList.addElement(m);
+				}
+			}
+		}
+		
+		
+		
 	}
 }

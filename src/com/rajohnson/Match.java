@@ -241,7 +241,7 @@ public class Match extends CouchDbDocument{
 	public String toString()
 	{
 		String result = "Played game " + matchmakingQueue + " as " + championPlayed;
-    	result += "\n\tKills: " + numKills + " Assists: " + numAssists + " Deaths: " + numDeaths;
+    	result += "\n\tKills: " + numKills + " Deaths: " + numDeaths +" Assists: " + numAssists ;
     	result += "\n\tMinion Kills: " + minionsKilled + " Gold Earned: " + goldEarned;
     	result += "\n\t" + itemsBought;
     	result += "\n\tVictory: " + win;
