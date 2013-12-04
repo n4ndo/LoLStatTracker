@@ -81,7 +81,6 @@ public class StatController extends JFrame implements ActionListener{
 	private JList<Match> matchesList;
 	private DefaultListModel<Match> matchListModel;
 	private JTabbedPane mainWindow;
-	private static final int MatchmakingQueueLength = LeagueMatchmakingQueue.values().length;
 	
 	/**
 	 * Default constructor.
@@ -94,12 +93,26 @@ public class StatController extends JFrame implements ActionListener{
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setPreferredSize(new Dimension(948,800));
 		
+		//Load info from the config file. 
+		InfoLoader info = new InfoLoader();
+		info.loadInfoFromResourceFile();
 		mainWindow = new JTabbedPane(JTabbedPane.LEFT);
+		
+		if(info.getMainSummoner().length() < 1)
+		{
+			System.out.println("Hey! Time to update that main summoner :D ");
+		}
+		else
+		{
+			currentSummoner = info.getMainSummoner().toLowerCase();	
+		}
+		
+		String currentSummonerDb = currentSummoner + "-stats";
 		
 		HttpClient httpClient = new StdHttpClient.Builder().build();
 		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		CouchDbConnector db = dbInstance.createConnector("hydrophobic-stats", true);
-     	mr = new MatchRepository(db, "hydrophobic");
+		CouchDbConnector db = dbInstance.createConnector(currentSummonerDb, true);
+     	mr = new MatchRepository(db, currentSummoner);
 		Vector<Match> matchesPlayed = mr.getAllMatchesWithDate();
 		
 		matchListModel = new DefaultListModel<Match>();
@@ -153,8 +166,13 @@ public class StatController extends JFrame implements ActionListener{
 		
 		mainWindow.addTab("Recent Matches", recentMatchPanel);
 		mainWindow.addTab("Champion Performance", championPerformancePanel);
-		
+		GridBagConstraints mainC = new GridBagConstraints();
+		mainC.fill = GridBagConstraints.BOTH;
+		mainC.weightx=1;
+		mainC.weighty=1;
+		mainC.anchor = GridBagConstraints.LINE_START;
 		this.add(mainWindow, BorderLayout.LINE_START);
+		mainC.anchor = GridBagConstraints.PAGE_END;
 		this.add(updateButton, BorderLayout.PAGE_END);
 		this.pack();	
 	}
@@ -162,6 +180,7 @@ public class StatController extends JFrame implements ActionListener{
 	public void actionPerformed(ActionEvent e)
 	{
 		System.out.println(e.getActionCommand());
+		StringTokenizer strtok = new StringTokenizer(e.getActionCommand(),"|");
 		if(e.getActionCommand().equals("update"))
 		{
 			initializePasswordDialog();
@@ -174,9 +193,11 @@ public class StatController extends JFrame implements ActionListener{
 			logonAndUpdate();
 			loginDialog.setVisible(false);
 		}
-		else if(isInteger(e.getActionCommand()))
+		else if(strtok.countTokens() == 2 && strtok.nextToken().equals("tab"))
 		{
-			mainWindow.removeTabAt(Integer.parseInt(e.getActionCommand()));
+			String champName = strtok.nextToken();
+			int indexOfTab = mainWindow.indexOfTab(champName);
+			mainWindow.removeTabAt(indexOfTab);
 		}
 		else 
 		{
@@ -195,7 +216,7 @@ public class StatController extends JFrame implements ActionListener{
 					closeTabButton.setBorder(null);
 					closeTabButton.setPreferredSize(new Dimension(15,15));
 					int indexOfTab = mainWindow.indexOfTab(e.getActionCommand());
-					closeTabButton.setActionCommand(Integer.toString(indexOfTab));
+					closeTabButton.setActionCommand("tab|" + e.getActionCommand());
 					closeTabButton.addActionListener(this);
 					closeTabButton.setOpaque(false);
 					c.anchor = GridBagConstraints.WEST;
@@ -568,8 +589,9 @@ public class StatController extends JFrame implements ActionListener{
 		champPerformancePanel.add(championWinPercentageLabel, c);
 		
 		DecimalFormat dformat = new DecimalFormat("##0.00");
-		JLabel championWinRate = new JLabel(dformat.format(winRateAsPercent(matchesForChamp)) + "%");
+		JLabel championWinRate = new JLabel(dformat.format(calculateWinRateAsPercent(matchesForChamp)) + "%");
 		championWinRate.setFont(serifFont);
+		championWinRate.setMinimumSize(new Dimension(44,19));
 		c.gridx=1;
 		champPerformancePanel.add(championWinRate, c);
 		
@@ -586,6 +608,7 @@ public class StatController extends JFrame implements ActionListener{
 		killCount.setFont(serifFont);
 		killPanel.add(killLabel);
 		killPanel.add(killCount);
+		c.anchor=GridBagConstraints.WEST;
 		c.gridx=0;
 		c.gridy=0;
 		champStatPanel.add(killPanel, c);
@@ -639,10 +662,10 @@ public class StatController extends JFrame implements ActionListener{
 		{
 			champMatchListModel.addElement(m);
 		}
-		System.out.println("Create model champ match list model size: " + champMatchListModel.getSize());
 		JList<Match> champMatchList = new JList<Match>(champMatchListModel);
 		champMatchList.setCellRenderer(new MatchCellRenderer<Match>(MatchCellRenderer.CellSize.SMALL));
-		JScrollPane champMatchScrollPane = new JScrollPane(champMatchList);
+		JScrollPane champMatchScrollPane = new JScrollPane(champMatchList,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		champMatchScrollPane.setOpaque(false);
 		champMatchScrollPane.getViewport().setOpaque(false);
 		c.gridy=3;
@@ -660,7 +683,30 @@ public class StatController extends JFrame implements ActionListener{
 	
 	public void updateStatPanelWithMatches(String championName, ArrayList<Match> matchesPlayedOnChamp)
 	{
+		int tabIndex = mainWindow.indexOfTab(championName);
+		JPanel panel = (JPanel) mainWindow.getComponentAt(tabIndex);
+		JLabel champWinRate = (JLabel) panel.getComponent(2);
+		DecimalFormat dformat = new DecimalFormat("##0.00");
+		champWinRate.setText(dformat.format(calculateWinRateAsPercent(matchesPlayedOnChamp)));
+		System.out.println(panel.getComponentCount());
+		System.out.println(champWinRate.getSize());
 		
+		JPanel champPerformancePanel = (JPanel)panel.getComponent(3);
+		JPanel killPanel = (JPanel) champPerformancePanel.getComponent(0);
+		JPanel assistPanel = (JPanel) champPerformancePanel.getComponent(1);
+		JPanel deathPanel = (JPanel) champPerformancePanel.getComponent(2);
+		JPanel minionKillPanel = (JPanel) champPerformancePanel.getComponent(3);
+		
+		updateSingleGameStatPanel(calculateKillsPerMatch(matchesPlayedOnChamp), killPanel);
+		updateSingleGameStatPanel(calculateAssistsPerMatch(matchesPlayedOnChamp),assistPanel);
+		updateSingleGameStatPanel(calculateDeathsPerMatch(matchesPlayedOnChamp),deathPanel);
+		updateSingleGameStatPanel(calculateMinionKillsPerMatch(matchesPlayedOnChamp),minionKillPanel);
+	}
+	
+	private void updateSingleGameStatPanel(double newValue, JPanel statPanel)
+	{
+		DecimalFormat dformat = new DecimalFormat("##0.00");
+		((JLabel)statPanel.getComponent(1)).setText(dformat.format(newValue));
 	}
 	
 	/**
@@ -668,7 +714,7 @@ public class StatController extends JFrame implements ActionListener{
 	 * @param matches The list of matches to check.
 	 * @return A double value which is the percentage of victories in {@code matches}
 	 */
-	private double winRateAsPercent(ArrayList<Match> matches)
+	private double calculateWinRateAsPercent(ArrayList<Match> matches)
 	{
 		int gamesWon = 0;
 		int gamesTotal = 0;
@@ -793,7 +839,7 @@ public class StatController extends JFrame implements ActionListener{
 	    }
 	    return true;
 	}
-	
+
 	private class MatchCheckPanel extends JPanel implements ItemListener
 	{
 
@@ -852,6 +898,8 @@ public class StatController extends JFrame implements ActionListener{
 			matchesToShow.add(ranked3v3);
 			matchesToShow.add(oneForAll);
 			matchesToShow.add(dominion);
+			
+			System.out.println(matchesToShow);
 			
 			Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 12);
 			Font serifFont = new Font(Font.SERIF, Font.PLAIN, 12);
@@ -925,7 +973,7 @@ public class StatController extends JFrame implements ActionListener{
 			}
 			else if(boxSelected == normal3v3Box)
 			{
-				addOrRemoveMatch(arg0,matchesToShow,normal5v5);
+				addOrRemoveMatch(arg0,matchesToShow,normal3v3);
 			}
 			else if(boxSelected == aramBox)
 			{
@@ -952,17 +1000,20 @@ public class StatController extends JFrame implements ActionListener{
 				addOrRemoveMatch(arg0,matchesToShow,dominion);
 			}
 			
+			System.out.println("Matches to show contains bot game: " + matchesToShow.contains(bot5v5));
 			int tabIndex = mainWindow.indexOfTab(m_ChampName);
 			JPanel champPerfPanel = (JPanel)mainWindow.getComponent(tabIndex);
 			int componentCount = champPerfPanel.getComponentCount();
+			ArrayList<Match> updatedMatchList = null;
 			if(matchesToShow.size() <= startSize)
 			{
-				removeMatchesFromView(matchScrollPane,matchesToShow);
+				updatedMatchList = removeMatchesFromView(matchScrollPane,matchesToShow);
 			}
 			else
 			{
-				addMatchesToView(matchScrollPane, matchesToShow);
+				updatedMatchList = addMatchesToView(matchScrollPane, matchesToShow);
 			}
+			parent.updateStatPanelWithMatches(m_ChampName, updatedMatchList);
 		}
 		private void addOrRemoveMatch(ItemEvent e, HashSet<String> matchSet, String matchmakingQueue)
 		{
@@ -976,10 +1027,11 @@ public class StatController extends JFrame implements ActionListener{
 			}
 		}
 		@SuppressWarnings("unchecked")
-		private void removeMatchesFromView(JScrollPane matchPane, HashSet<String> matchesToShow)
+		private ArrayList<Match> removeMatchesFromView(JScrollPane matchPane, HashSet<String> matchesToShow)
 		{
 			// Get the list model.
 			DefaultListModel<Match> matchList = (DefaultListModel<Match>) ((JList<Match>)(matchPane.getViewport().getComponent(0))).getModel();
+			ArrayList<Match> matchesToReturn = new ArrayList<Match>();
 			for(int i = 0; i < matchList.getSize(); )
 			{
 				Match currentMatch = matchList.get(i);
@@ -989,23 +1041,30 @@ public class StatController extends JFrame implements ActionListener{
 				}
 				else
 				{
+					matchesToReturn.add(currentMatch);
 					i++;
 				}
 			}
+			
+			return matchesToReturn;
 		}
 		
 		@SuppressWarnings("unchecked")
-		private void addMatchesToView(JScrollPane matchPane, HashSet<String> matchesToShow)
+		private ArrayList<Match> addMatchesToView(JScrollPane matchPane, HashSet<String> matchesToShow)
 		{
 			DefaultListModel<Match> matchList = (DefaultListModel<Match>) ((JList<Match>)(matchPane.getViewport().getComponent(0))).getModel();
 			matchList.removeAllElements();
+			ArrayList<Match> matchesToReturn = new ArrayList<Match>();
 			for(Match m : matchesForChamp)
 			{
 				if(matchesToShow.contains(m.getMatchmakingQueue()))
 				{
 					matchList.addElement(m);
+					matchesToReturn.add(m);
 				}
 			}
+			
+			return matchesToReturn;
 		}
 		
 		
