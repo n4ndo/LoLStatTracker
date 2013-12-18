@@ -8,5 +8,6 @@ rawmessages
 src/com/gvaneyck/runesorter
 src/com/gvaneyck/spectate
 src/com/gvaneyck/util
+res/configItems/userConfig.json
 *.MF
 test-console.sh
