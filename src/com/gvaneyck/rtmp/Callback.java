@@ -13,4 +13,3 @@ public interface Callback
 	 */
 	public void callback(TypedObject result);
 }
-

@@ -14,4 +14,3 @@ public class ClassDefinition
 	public boolean dynamic = false;
 	public List<String> members = new ArrayList<String>();
 }
-

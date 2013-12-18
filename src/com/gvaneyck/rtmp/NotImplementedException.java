@@ -16,4 +16,3 @@ public class NotImplementedException extends IOException
 		super(message);
 	}
 }
-

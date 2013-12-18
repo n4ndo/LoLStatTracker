@@ -172,4 +172,3 @@ public class TypedObject extends HashMap<String, Object>
 			return type + ":" + super.toString();
 	}
 }
-
