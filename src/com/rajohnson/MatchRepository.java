@@ -1,25 +1,44 @@
 package com.rajohnson;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.Vector;
 
+import org.codehaus.jackson.JsonProcessingException;
+
 import org.ektorp.CouchDbConnector;
+import org.ektorp.DocumentNotFoundException;
+import org.ektorp.Revision;
 import org.ektorp.ViewResult;
 import org.ektorp.ViewResult.Row;
+
 import org.ektorp.support.CouchDbRepositorySupport;
 
+import com.achimala.leaguelib.connection.LeagueServer;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 
-public class MatchRepository extends CouchDbRepositorySupport<Match> {
+
+
+public class MatchRepository extends CouchDbRepositorySupport<Match>{
 
 	private String m_SummonerName;
 	private boolean initialized = false;
 	private static SimpleDateFormat dbDateFormat;
+	private final String matchDocumentId = "_design/Match";
+	private final String matchDocumentLocation = "res/configItems/match.json";
 	
 	//All matches should use the exact same date format, so only one date format needs to be created.
 	static
@@ -64,16 +83,43 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 	 */
 	public Vector<Match> getAllMatchesWithDate()
 	{
-		ViewResult result = db.queryView(createQuery("by_date"));
 		ArrayList<Match> matches = new ArrayList<Match>();
-		for(Row r : result.getRows())
+		try
 		{
-			matches.add(getMatchFromRow(r));
+			ViewResult result = db.queryView(createQuery("by_date"));
+			for(Row r : result.getRows())
+			{
+				matches.add(getMatchFromRow(r));
+			}
+		
 		}
+		catch(DocumentNotFoundException e)
+		{
+			String fileLocation = matchDocumentLocation;
+			//BufferedReader inFile = null;
+			try(BufferedReader inFile = new BufferedReader(new FileReader(fileLocation)))
+			{
+				createStandardDesignDocument();
+				ViewResult result = db.queryView(createQuery("by_date"));
+				for(Row r : result.getRows())
+				{
+					matches.add(getMatchFromRow(r));
+				}
+			}
+			catch(IOException ex)
+			{
+				ex.printStackTrace();
+			}
+			catch(DocumentNotFoundException ex)
+			{
+				ex.printStackTrace();
+				
+			}
+		}
+
 		Vector<Match> matchesToReturn = new Vector<Match>(matches);
 		Collections.reverse(matchesToReturn);
 		return matchesToReturn;
-		
 	}
 	
 	public void printStatsByChampionPlayed(String champion)
@@ -139,8 +185,6 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 			}
 		}
 		
-		System.out.println(matchesToCheck);
-		
 		return matchesToCheck;
 	}
 	
@@ -163,6 +207,12 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 		matchToReturn.setNumAssists(rNode.get("numAssists").intValue());
 		matchToReturn.setMinionsKilled(rNode.get("minionsKilled").intValue());
 		matchToReturn.setGoldEarned(rNode.get("goldEarned").intValue());
+		ArrayList<Integer> itemsBought = new ArrayList<Integer>();
+		for(int i = 0; i < 6; i++)
+		{
+			itemsBought.add(rNode.get("itemsBought").get(i).intValue());
+		}
+		matchToReturn.setItemsBought(itemsBought);
 		if(rNode.has("date"))
 		{
 			String dateString = rNode.get("date").textValue();
@@ -235,4 +285,31 @@ public class MatchRepository extends CouchDbRepositorySupport<Match> {
 		
 		return matchesForChampion;
 	}
+	
+	
+    public void createStandardDesignDocument() throws JsonProcessingException, IOException
+    {
+    	if(db.contains(matchDocumentId))
+    	{
+    		for(Revision r : db.getRevisions(matchDocumentId))
+    		{
+    			db.delete(matchDocumentId, r.getRev());
+    		}
+    	}
+    	ObjectMapper objMapper = new ObjectMapper();
+    	JsonNode rootNode = objMapper.readTree(new File("res/configItems/match.json"));
+		String id = rootNode.get("_id").textValue();
+		Iterator<String> fieldIterator = rootNode.fieldNames();
+		while(fieldIterator.hasNext())
+		{
+			String currentField = fieldIterator.next();
+			if(currentField.equals("_id") || currentField.equals("language"))
+			{
+				continue;
+			}
+			
+		}
+		db.create(matchDocumentId, rootNode);
+    }
+    
 }

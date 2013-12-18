@@ -33,7 +33,7 @@ public class Match extends CouchDbDocument{
 		minionsKilled = 0;
 		goldEarned = 0;
 		itemsBought = new ArrayList<Integer>(6);
-		trinket = -1;
+		trinket = 0;
 		datePlayed = new Date(0);
 	}
 	

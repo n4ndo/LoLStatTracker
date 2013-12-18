@@ -22,7 +22,7 @@ public class InfoLoader {
 	
 	public InfoLoader() {
 		 summonerList = new ArrayList<String>();
-		 mainSummoner = "";
+		 mainSummoner = new String();
 		 loginId = "";
 		 summonerServerMap = new HashMap<String,LeagueServer>();
 		 mainServer = LeagueServer.NORTH_AMERICA;
@@ -30,9 +30,12 @@ public class InfoLoader {
 	
 	public void addSummoner(String summonerName)
 	{
+		System.out.println("Summoner name: " + summonerName);
 		if(!summonerList.contains(summonerName))
 		{
+			System.out.println(summonerName + " is not in the list of summoners.");
 			summonerList.add(summonerName);
+			System.out.println(summonerList);
 		}
 	}
 	
@@ -44,6 +47,16 @@ public class InfoLoader {
 		}
 	}
 	
+	public ArrayList<String> getSummonerList()
+	{
+		return summonerList;
+	}
+	
+	/**
+	 * Sets the main summoner for LoLStatTracker. If the summoner has not been first added to the list of summoners via
+	 * {@link addSummoner} then setMainSummoner will do nothing.
+	 * @param summonerName
+	 */
 	public void setMainSummoner(String summonerName)
 	{
 		if(summonerList.contains(summonerName))
@@ -70,14 +83,14 @@ public class InfoLoader {
 	public boolean loadInfoFromResourceFile()
 	{
 		ObjectMapper objMapper = new ObjectMapper();
-		File inFile = new File("res/userConfig.json");
+		File inFile = new File("res/configItems/userConfig.json");
 		if(!inFile.exists())
 		{
 			//The file doesn't exist. Create it with empty values. 
 			writeInfoToResourceFile();
 		}
 		try {
-			JsonNode rootNode = objMapper.readTree(new File("res/userConfig.json"));
+			JsonNode rootNode = objMapper.readTree(new File("res/configItems/userConfig.json"));
 			loginId = rootNode.path("loginId").getTextValue();
 			mainSummoner = rootNode.path("mainSummoner").getTextValue();
 			mainServer = LeagueServer.findServerByCode(rootNode.path("mainServer").getTextValue());
@@ -112,21 +125,18 @@ public class InfoLoader {
 		infoObj.put("loginId", loginId);
 		infoObj.put("mainSummoner",mainSummoner);
 		infoObj.put("mainServer", mainServer.getServerCode());
-		//infoObj.putPOJO("summonerList", summonerList);
-		/*for(String key : summonerServerMap.keySet())
-		{
-			infoObj.put(key, summonerServerMap.get(key).getServerCode());
-		}*/
+
 		int i = 0;
 		for(String summonerName : summonerList)
 		{
 			infoObj.put("summoner" + i,summonerName);
+			i++;
 		}
 		
 		
 		
 		try {
-			objMapper.writeValue(new File("res/userConfig.json"),infoObj);
+			objMapper.writeValue(new File("res/configItems/userConfig.json"),infoObj);
 		} catch (IOException e) {
 			
 			e.printStackTrace();
@@ -134,8 +144,20 @@ public class InfoLoader {
 		return true;
 	}
 	
-	
-	
-	
-
+	/**
+	 * Checks whether or not the given summoner is already stored in the config file. 
+	 * @param summonerName The name of the summoner to check.
+	 * @return
+	 */
+	private boolean summonerIsStored(String summonerName)
+	{
+		for(String name : summonerList)
+		{
+			if(name.equalsIgnoreCase(summonerName))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 }

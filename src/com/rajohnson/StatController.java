@@ -17,11 +17,15 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
@@ -43,11 +47,16 @@ import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
@@ -61,6 +70,7 @@ import javax.swing.border.EtchedBorder;
 import com.achimala.leaguelib.connection.LeagueAccount;
 import com.achimala.leaguelib.connection.LeagueConnection;
 import com.achimala.leaguelib.connection.LeagueServer;
+import com.achimala.leaguelib.errors.LeagueErrorCode;
 import com.achimala.leaguelib.errors.LeagueException;
 import com.achimala.leaguelib.models.LeagueChampion;
 import com.achimala.leaguelib.models.LeagueSummoner;
@@ -75,12 +85,22 @@ public class StatController extends JFrame implements ActionListener{
 	private JDialog loginDialog;
 	private JTextField usernameField;
 	private JPasswordField passwordField;
-	//JButton loginButton;
+	private JDialog addSummonerDialog;
+	private JTextField addSummonerNameField;
 	private MatchRepository mr;
-	private String currentSummoner = "Hydrophobic";
+	private String currentSummoner;
 	private JList<Match> matchesList;
 	private DefaultListModel<Match> matchListModel;
 	private JTabbedPane mainWindow;
+	private JComboBox<String> serverComboBox;
+	private InfoLoader info;
+	private JLabel currentSummonerLabel;
+	private JMenuBar mainMenuBar;
+	
+	private final String welcomeMessage = "<html><body><p style='width: 200px;'>It appears this may be your first time using LoL Stat Tracker."
+			+ "You will be prompted to enter your summoner name. To start keeping track of your matches, " 
+			+ "click the button that says \"Update History\"."
+			+ "Thank you for using LoL Stat Tracker!</body></html>";
 	
 	/**
 	 * Default constructor.
@@ -88,32 +108,78 @@ public class StatController extends JFrame implements ActionListener{
 	 */
 	public StatController()
 	{
-		setLayout(new BorderLayout());
+		setLayout(new GridBagLayout());
 		setTitle("LoL Stat Tracker");
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setPreferredSize(new Dimension(948,800));
-		
-		//Load info from the config file. 
-		InfoLoader info = new InfoLoader();
+		getContentPane().setBackground(new Color(43,60,91));
+		info = new InfoLoader();
 		info.loadInfoFromResourceFile();
+		
+		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 20);
+		Font serifFont = new Font(Font.SERIF, Font.PLAIN, 20);
+		JLabel summonerLabel = new JLabel("Summoner: ");
+		summonerLabel.setFont(serifFontBold);
+		summonerLabel.setOpaque(false);
+		summonerLabel.setForeground(Color.WHITE);
+		
+		Map<Integer,Map<String,Object>> itemList = LeagueItem.getItemList();
+		try(BufferedWriter itemOut = new BufferedWriter(new FileWriter("res/itemArray.txt")))
+		{
+			for(Integer item : itemList.keySet())
+			{
+				String itemName = (String) itemList.get(item).get("Name");
+				itemName = itemName.substring(0,itemName.length()-1).replaceAll(" ", "_");
+				itemName += ".png";
+				itemOut.write("_itemIcons.put(" + item + ",\"res/itemIcon/" + itemName + "\");\n");
+			}
+		}
+		catch(IOException e)
+		{
+			System.out.println("Well shit something went wrong. ");
+		}
+		
+		
+		mr = null;
+		//Load info from the config file. 
+		
 		mainWindow = new JTabbedPane(JTabbedPane.LEFT);
 		
 		if(info.getMainSummoner().length() < 1)
 		{
-			System.out.println("Hey! Time to update that main summoner :D ");
+			JOptionPane.showMessageDialog(this, welcomeMessage, "Welcome", JOptionPane.INFORMATION_MESSAGE);
+			initializeAddSummonerDialog();
+			addSummonerDialog.pack();
+			addSummonerDialog.setLocationRelativeTo(null);
+			addSummonerDialog.setVisible(true);
 		}
 		else
 		{
 			currentSummoner = info.getMainSummoner().toLowerCase();	
 		}
 		
-		String currentSummonerDb = currentSummoner + "-stats";
+		currentSummonerLabel = new JLabel(info.getMainSummoner());
+		currentSummonerLabel.setOpaque(false);
+		currentSummonerLabel.setFont(serifFont);
+		currentSummonerLabel.setForeground(Color.WHITE);
 		
-		HttpClient httpClient = new StdHttpClient.Builder().build();
-		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		CouchDbConnector db = dbInstance.createConnector(currentSummonerDb, true);
-     	mr = new MatchRepository(db, currentSummoner);
-		Vector<Match> matchesPlayed = mr.getAllMatchesWithDate();
+		// Initialize the menu bar. If this is not done before current summoner is set then no summoners
+		// are disabled on the 'Change Summoner' menu. 
+		mainMenuBar = createMenuBar();
+		
+		
+		Vector<Match> matchesPlayed = null;
+		
+		//If the default summoner is not empty connect DB
+		if(currentSummoner.length() > 0)
+		{
+			initializeMatchRepositoryForSummoner(currentSummoner);
+			matchesPlayed = mr.getAllMatchesWithDate();
+		}
+		else
+		{
+			matchesPlayed = new Vector<Match>();
+		}
 		
 		matchListModel = new DefaultListModel<Match>();
 		for(Match m : matchesPlayed)
@@ -152,7 +218,9 @@ public class StatController extends JFrame implements ActionListener{
 				    g2d.fillRect(0, 0, w, h);
 				}
 		};
-		JScrollPane champPerformancePane = new JScrollPane(addChampIconsToChampPerformance(), JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		JScrollPane champPerformancePane = new JScrollPane(addChampIconsToChampPerformance(), JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+		champPerformancePane.getVerticalScrollBar().setUnitIncrement(10);
 		champPerformancePane.setPreferredSize(new Dimension(760,700));
 		championPerformancePanel.add(champPerformancePane);
 		
@@ -161,26 +229,52 @@ public class StatController extends JFrame implements ActionListener{
 		updateButton.setActionCommand("update");
 		updateButton.addActionListener(this);
 		
-		System.out.println(updateButton.getActionCommand());
-		
-		
 		mainWindow.addTab("Recent Matches", recentMatchPanel);
 		mainWindow.addTab("Champion Performance", championPerformancePanel);
 		GridBagConstraints mainC = new GridBagConstraints();
-		mainC.fill = GridBagConstraints.BOTH;
+		mainC.fill = GridBagConstraints.NONE;
+		mainC.weightx=0;
+		mainC.weighty=0;
+		mainC.gridx=0;
+		mainC.gridy=0;
+		mainC.anchor = GridBagConstraints.LINE_START;
+		
+		this.setJMenuBar(mainMenuBar);
+		this.add(summonerLabel, mainC);
+		mainC.gridx=1;
+		
+		this.add(currentSummonerLabel, mainC);
+		mainC.fill=GridBagConstraints.BOTH;
+		mainC.gridx=0;
+		mainC.gridy=1;
 		mainC.weightx=1;
 		mainC.weighty=1;
-		mainC.anchor = GridBagConstraints.LINE_START;
-		this.add(mainWindow, BorderLayout.LINE_START);
-		mainC.anchor = GridBagConstraints.PAGE_END;
-		this.add(updateButton, BorderLayout.PAGE_END);
+		mainC.gridwidth=3;
+		mainC.gridheight=1;
+		this.add(mainWindow, mainC);
+		mainC.gridy=2;
+		mainC.gridheight=1;
+		mainC.weightx=0;
+		mainC.weighty=0;
+		mainC.anchor = GridBagConstraints.CENTER;
+		mainC.fill=GridBagConstraints.HORIZONTAL;
+		this.add(updateButton, mainC);
+		
 		this.pack();	
 	}
 	
+
 	public void actionPerformed(ActionEvent e)
 	{
 		System.out.println(e.getActionCommand());
 		StringTokenizer strtok = new StringTokenizer(e.getActionCommand(),"|");
+		String firstToken = new String();
+		boolean hasTwoTokens = false;
+		if(strtok.countTokens() == 2)
+		{
+			hasTwoTokens = true;
+			firstToken = strtok.nextToken();
+		}
 		if(e.getActionCommand().equals("update"))
 		{
 			initializePasswordDialog();
@@ -188,20 +282,73 @@ public class StatController extends JFrame implements ActionListener{
 			loginDialog.setLocationRelativeTo(null);
 			loginDialog.setVisible(true);
 		}
+		// Log on and update the recent matches.
 		else if(e.getActionCommand().equals("logon"))
 		{
 			logonAndUpdate();
 			loginDialog.setVisible(false);
 		}
-		else if(strtok.countTokens() == 2 && strtok.nextToken().equals("tab"))
+		//Add a new summoner to list of summoners
+		else if(e.getActionCommand().equals("addSummonerButton"))
 		{
-			String champName = strtok.nextToken();
-			int indexOfTab = mainWindow.indexOfTab(champName);
-			mainWindow.removeTabAt(indexOfTab);
+			String summonerName = addSummonerNameField.getText();
+			// Trying to add the summoner that already exists. Don't add anything.
+			if(summonerName.length() > 0){
+				if(summonerName.equalsIgnoreCase(currentSummoner))
+				{
+					return;
+				}
+				else if(summonerName.length() > 0)
+				{
+					System.out.println("Main summoner: " + info.getMainSummoner());
+					System.out.println("Main summoner is empty: " + info.getMainSummoner().isEmpty());
+					info.addSummoner(summonerName);
+					if(info.getMainSummoner().length() < 1)
+					{
+						info.setMainSummoner(summonerName);
+					}
+					
+				}
+				// Clear the tabs.
+				changeCurrentSummonerAndUpdateDisplay(summonerName);
+				
+				addSummonerDialog.setVisible(false);
+				info.writeInfoToResourceFile();
+			}
+		}
+		else if(e.getActionCommand().equalsIgnoreCase("addSummonerMenu"))
+		{
+			System.out.println("I got here");
+			initializeAddSummonerDialog();
+			addSummonerDialog.pack();
+			addSummonerDialog.setLocationRelativeTo(null);
+			addSummonerDialog.setVisible(true);
+		}
+		//Close a champ performance tab.
+		else if(hasTwoTokens)
+		{
+			if(firstToken.equalsIgnoreCase("tab"))
+			{
+				String champName = strtok.nextToken();
+				int indexOfTab = mainWindow.indexOfTab(champName);
+				mainWindow.removeTabAt(indexOfTab);
+			}
+			else if(firstToken.equalsIgnoreCase("remove"))
+			{
+				String summonerName = strtok.nextToken();
+				System.out.println("Remove summoner: " + summonerName);
+			}
+			else if(firstToken.equalsIgnoreCase("change"))
+			{
+				String summonerName = strtok.nextToken();
+				System.out.println("Change summoner to " + summonerName + " from " + currentSummoner);
+				changeCurrentSummonerAndUpdateDisplay(summonerName);
+			}
 		}
 		else 
 		{
-			if(mr.isRepoConnected())
+			//TODO: FIX THIS. THIS IS CAUSING NULL POINTER EXCEPTIONS
+			if((mr != null) && mr.isRepoConnected())
 			{
 				mr.printStatsByChampionPlayed(e.getActionCommand());
 				JPanel newChampPanel = createCloseableChampPerfTab(e.getActionCommand());
@@ -238,15 +385,139 @@ public class StatController extends JFrame implements ActionListener{
 			}
 			else
 			{
-				HttpClient httpClient = new StdHttpClient.Builder().build();
+				/*HttpClient httpClient = new StdHttpClient.Builder().build();
 				CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
 				String dbname = currentSummoner + "-stats";
 				CouchDbConnector db = dbInstance.createConnector(dbname, true);
-				MatchRepository mr = new MatchRepository(db, currentSummoner);
+				MatchRepository mr = new MatchRepository(db, currentSummoner);*/
+			}
+		}
+	}
+
+
+	private void changeCurrentSummonerAndUpdateDisplay(String summonerName) {
+		removeChampStatPanels();
+
+		currentSummoner = summonerName;
+
+		initializeMatchRepositoryForSummoner(summonerName);
+
+		reloadRecentMatchesForCurrentSummoner();
+		
+		updateChangeAndRemoveSummonerMenu();
+	}
+	
+	private JMenuBar createMenuBar()
+	{
+		JMenuBar menuBar = new JMenuBar();
+		JMenu fileMenu = new JMenu("File");
+		JMenu summonerMenu = new JMenu("Summoner");
+		
+		JMenuItem exitItem = new JMenuItem("Exit");
+		exitItem.addActionListener(this);
+		exitItem.setActionCommand("exit");
+		
+		JMenuItem importItem = new JMenuItem("Import Stats");
+		importItem.addActionListener(this);
+		importItem.setActionCommand("import");
+		importItem.setEnabled(false);
+		
+		JMenuItem exportItem = new JMenuItem("Export Stats");
+		exportItem.addActionListener(this);
+		exportItem.setActionCommand("export");
+		exportItem.setEnabled(false);
+		
+		// Uncomment this once export/import has been added
+		/*fileMenu.add(importItem);
+		fileMenu.add(exportItem);*/
+		fileMenu.add(exitItem);
+		
+		menuBar.add(fileMenu);
+		
+		JMenuItem addSummonerItem = new JMenuItem("Add Summoner");
+		addSummonerItem.setEnabled(true);
+		addSummonerItem.addActionListener(this);
+		addSummonerItem.setActionCommand("addSummonerMenu");
+		
+		summonerMenu.add(addSummonerItem);
+		
+		JMenu removeSummonerMenu = new JMenu("Remove Summoner");
+		ArrayList<String> summoners = new ArrayList<String>(info.getSummonerList());
+		if(summoners.size() > 0)
+		{
+			Collections.sort(summoners);
+			for(String s : summoners)
+			{
+				JMenuItem removeSummonerMenuItem = new JMenuItem(s);
+				removeSummonerMenuItem.addActionListener(this);
+				removeSummonerMenuItem.setActionCommand("remove|" + s);
+				removeSummonerMenu.add(removeSummonerMenuItem);
+			}
+		}
+		else
+		{
+			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
+			noChoiceItem.setEnabled(false);
+			removeSummonerMenu.add(noChoiceItem);
+		}
+		summonerMenu.add(removeSummonerMenu);
+		
+		JMenu changeSummonerMenu = new JMenu("Change Summoner");
+		if(summoners.size() > 0)
+		{
+			for(String s : summoners)
+			{
+				JMenuItem changeSummonerMenuItem = new JMenuItem(s);
+				changeSummonerMenuItem.addActionListener(this);
+				changeSummonerMenuItem.setActionCommand("change|" + s);
+				if(s.equalsIgnoreCase(currentSummoner))
+				{
+					changeSummonerMenuItem.setEnabled(false);
+				}
+				changeSummonerMenu.add(changeSummonerMenuItem);
+			}
+		}
+		else
+		{
+			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
+			noChoiceItem.setEnabled(false);
+			changeSummonerMenu.add(noChoiceItem);
+		}
+		summonerMenu.add(changeSummonerMenu);
+		menuBar.add(summonerMenu);
+		
+		
+		return menuBar;
+	}
+	
+	/**
+	 * Removes all tabs except for the 'Recent Matches' and 'Champion Stat' tabs. 
+	 * Used when switching summoners displayed.
+	 */
+	private void removeChampStatPanels()
+	{
+		int numWindowTabs = mainWindow.getTabCount();
+		if (numWindowTabs > 2)
+		{
+			while(mainWindow.getTabCount() > 2)
+			{
+				mainWindow.removeTabAt(2);
 			}
 		}
 	}
 	
+	/**
+	 * Initializes the {@link MatchRepository} mr to be linked the database associated with the summoner {@code summonerName} 
+	 * @param summonerName A summoner's name to connect to an existing database or create a new one. 
+	 */
+	private void initializeMatchRepositoryForSummoner(String summonerName)
+	{
+		HttpClient httpClient = new StdHttpClient.Builder().build();
+		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
+		String dbname = summonerName + "-stats";
+     	CouchDbConnector db = dbInstance.createConnector(dbname, true);
+     	mr = new MatchRepository(db, summonerName);
+	}
 	
 	/**
 	 * @param args
@@ -257,88 +528,7 @@ public class StatController extends JFrame implements ActionListener{
 		sc.setLocationRelativeTo(null);
 		sc.pack();
 		sc.setVisible(true);
-		
-		
-		HttpClient httpClient = new StdHttpClient.Builder().build();
-		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		
-		/*String username, pword, summonerName;
-		System.out.print("Enter your login name: ");
-		Scanner scan = new Scanner(System.in);
-		username = scan.nextLine();
-		// Clear whitespace
-		System.out.print("\nEnter your password: ");
-		pword = scan.nextLine();
-		System.out.print("Enter the summoner you would like to check stats for: ");
-		summonerName = scan.nextLine();
-		
-		final LeagueConnection c = new LeagueConnection(LeagueServer.NORTH_AMERICA);
-		c.getAccountQueue().addAccount(new LeagueAccount(LeagueServer.NORTH_AMERICA, "3.14.xx", username,pword));
-		System.out.println("Before connectAll()");
-		Map<LeagueAccount, LeagueException> exceptions = c.getAccountQueue().connectAll();
-        if(exceptions != null) {
-            for(LeagueAccount account : exceptions.keySet())
-                System.out.println(account + " error: " + exceptions.get(account));
-            scan.close();
-            return;
-        }
         
-        // if the second parameter is true, the database will be created if it doesn't exists
-        String dbname = summonerName + "-stats";
-     	CouchDbConnector db = dbInstance.createConnector(dbname, true);
-     	MatchRepository mr = new MatchRepository(db, summonerName);
-        System.out.println("After connectAll()");
-        
-        
-        MatchWriter mw = new MatchWriter(summonerName);
-        // Ifthe summoner doesn't exist then we won't open the dbConnector.
-        //TODO: Move this line up. 
-        LeagueSummoner testSummoner = c.getSummonerService().getSummonerByName(summonerName);
-        c.getPlayerStatsService().fillMatchHistory(testSummoner);
-        ArrayList<MatchHistoryEntry> recentMatches = (ArrayList<MatchHistoryEntry>) testSummoner.getMatchHistory();
-        HashSet<LeagueChampion> champsPlayed = new HashSet<LeagueChampion>();
-        
-        //mw.writeMatches(recentMatches, testSummoner);
-        Match matchToWrite;
-        ArrayList<Match> matchesToWrite = new ArrayList<Match>();
-        for(MatchHistoryEntry match : recentMatches)
-        {
-        	matchToWrite = new Match();
-        	LeagueChampion  matchChamp = match.getChampionSelectionForSummoner(testSummoner);
-        	System.out.println("Played game " + match.getQueue() + " as " + matchChamp);
-        	System.out.println("\tKills: " + match.getStat(MatchHistoryStatType.CHAMPIONS_KILLED) + " Assists: " + match.getStat(MatchHistoryStatType.ASSISTS) + " Deaths: " + match.getStat(MatchHistoryStatType.NUM_DEATHS));
-        	System.out.println("\tMinion Kills: " + Integer.toString(match.getStat(MatchHistoryStatType.MINIONS_KILLED) + match.getStat(MatchHistoryStatType.NEUTRAL_MINIONS_KILLED)) + 
-        			" Gold Earned: " + match.getStat(MatchHistoryStatType.GOLD_EARNED));
-        	System.out.println("\t" + match.getStat(MatchHistoryStatType.ITEM0) + " " + match.getStat(MatchHistoryStatType.ITEM1));
-        	System.out.println("\tVictory: " + match.getStat(MatchHistoryStatType.WIN));
-        	System.out.println("\tGame ID: " + match.getGameId());
-        	
-        	matchToWrite.setGameId(match.getGameId());
-        	matchToWrite.setMatchmakingQueue(match.getQueue().name());
-        	matchToWrite.setChampionPlayed(matchChamp.getName());
-        	matchToWrite.setWin(match.getStat(MatchHistoryStatType.WIN));
-        	matchToWrite.setNumKills(match.getStat(MatchHistoryStatType.CHAMPIONS_KILLED));
-        	matchToWrite.setNumAssists(match.getStat(MatchHistoryStatType.ASSISTS));
-        	matchToWrite.setNumDeaths(match.getStat(MatchHistoryStatType.NUM_DEATHS));
-        	matchToWrite.setMinionsKilled(match.getStat(MatchHistoryStatType.MINIONS_KILLED) + match.getStat(MatchHistoryStatType.NEUTRAL_MINIONS_KILLED));
-        	matchToWrite.setGoldEarned(match.getStat(MatchHistoryStatType.GOLD_EARNED));
-        	matchToWrite.setDate(match.getCreationDate());
-        	
-        	ArrayList<Integer> itemsBought = new ArrayList<Integer>(6);
-        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM0));
-        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM1));
-        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM2));
-        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM3));
-        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM4));
-        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM5));
-        	matchToWrite.setItemsBought(itemsBought);
-        	
-        	matchesToWrite.add(matchToWrite);
-        	//mr.add(matchToWrite);
-        }
-        mr.addNewMatches(matchesToWrite);
-        mr.printStatsByChampionPlayed("Doesn't matter");
-        scan.close();*/
         
 	}
 	
@@ -415,13 +605,31 @@ public class StatController extends JFrame implements ActionListener{
 	 */
 	private void logonAndUpdate()
 	{
-		final LeagueConnection c = new LeagueConnection(LeagueServer.NORTH_AMERICA);
+		LeagueServer serverToUse = LeagueServer.findServerByCode((String)serverComboBox.getSelectedItem());
+		final LeagueConnection c = new LeagueConnection(serverToUse);
 		try {
-			c.getAccountQueue().addAccount(new LeagueAccount(LeagueServer.NORTH_AMERICA, "3.14.xx", usernameField.getText(),
+			c.getAccountQueue().addAccount(new LeagueAccount(serverToUse, "3.15.xx", usernameField.getText(),
 					new String(passwordField.getPassword())));
 		} catch (LeagueException e1) {
-			// TODO Auto-generated catch block
+			System.out.println(e1.getErrorCode());
+			if(e1.getErrorCode() == LeagueErrorCode.NETWORK_ERROR)
+			{
+				if(e1.getMessage().contains("client version"))
+				{
+					System.out.println("Wrong client version");
+				}
+				else if(e1.getMessage().contains("username or password"))
+				{
+					System.out.println("Wrong log in info");
+				}
+			}
+			else if(e1.getErrorCode() == LeagueErrorCode.AUTHENTICATION_ERROR)
+			{
+				System.out.println("You goofed on the logon man!");
+			}
+			
 			e1.printStackTrace();
+			return;
 		}
 		
 		//Connect 
@@ -434,16 +642,12 @@ public class StatController extends JFrame implements ActionListener{
         
         //Get summoner info by summoner name, get recent matches and write them to the database. 
         LeagueSummoner testSummoner;
-        String summonerName = "Hydrophobic";
+        String summonerName = currentSummoner;
 		try {
 			testSummoner = c.getSummonerService().getSummonerByName(summonerName);
 			c.getPlayerStatsService().fillMatchHistory(testSummoner);
 	        ArrayList<MatchHistoryEntry> recentMatches = (ArrayList<MatchHistoryEntry>) testSummoner.getMatchHistory();
-	        HttpClient httpClient = new StdHttpClient.Builder().build();
-    		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-    		String dbname = summonerName + "-stats";
-         	CouchDbConnector db = dbInstance.createConnector(dbname, true);
-         	mr = new MatchRepository(db, summonerName);
+	        initializeMatchRepositoryForSummoner(summonerName);
          	
 	        ArrayList<Match> mostRecentMatches = getMatchesToWrite(recentMatches, testSummoner);
 	        
@@ -498,6 +702,7 @@ public class StatController extends JFrame implements ActionListener{
 	        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM4));
 	        	itemsBought.add(match.getStat(MatchHistoryStatType.ITEM5));
 	        	matchToWrite.setItemsBought(itemsBought);
+	        	matchToWrite.setTrinket(match.getStat(MatchHistoryStatType.ITEM6));
 	        	
 	        	matchesToWrite.add(matchToWrite);
 	        }
@@ -514,19 +719,105 @@ public class StatController extends JFrame implements ActionListener{
 		loginButton.setActionCommand("logon");
 		loginButton.addActionListener(this);
 		JPanel loginDialogPanel = new JPanel();
-		loginDialogPanel.setLayout(new BoxLayout(loginDialogPanel, BoxLayout.Y_AXIS));
+		
+		loginDialogPanel.setLayout(new GridBagLayout());
+		GridBagConstraints c = new GridBagConstraints();
+		c.gridx = 0;
+		c.gridy = 0;
+		c.anchor = GridBagConstraints.WEST;
+		c.insets = new Insets(5,20,5,0);
+		
 		JLabel loginLabel = new JLabel("Username:");
 		JLabel passwordLabel = new JLabel("Password:");
 		usernameField = new JTextField();
 		passwordField = new JPasswordField();
 		passwordField.addActionListener(this);
-		loginDialogPanel.add(loginLabel);
-		loginDialogPanel.add(usernameField);
-		loginDialogPanel.add(passwordLabel);
-		loginDialogPanel.add(passwordField);
-		loginDialogPanel.add(loginButton);
+		loginDialogPanel.add(loginLabel, c);
+		
+		c.insets = new Insets(5,0,5,0);
+		c.gridy = 1;
+		c.fill = GridBagConstraints.HORIZONTAL;
+		loginDialogPanel.add(usernameField, c);
+		
+		c.gridy = 2;
+		c.fill = GridBagConstraints.NONE;
+		loginDialogPanel.add(passwordLabel, c);
+		
+		c.gridy = 3;
+		c.fill = GridBagConstraints.HORIZONTAL;
+		loginDialogPanel.add(passwordField, c);
+
+		String[] serverCodes = new String[LeagueServer.values().length];
+		int i = 0;
+		for(LeagueServer server : LeagueServer.values())
+		{
+			System.out.println(server.getServerCode());
+			serverCodes[i] = server.getServerCode();
+			i++;
+		}
+		
+		c.gridy = 4;
+		c.fill = GridBagConstraints.NONE;
+		serverComboBox = new JComboBox<String>(serverCodes);
+		loginDialogPanel.add(serverComboBox, c);
+		
+		c.insets = new Insets(5,0,5,20);
+		c.gridy = 5;
+		c.anchor = GridBagConstraints.CENTER;
+		loginDialogPanel.add(loginButton, c);
+		
 		loginDialog.add(loginDialogPanel);
+		loginDialog.setPreferredSize(new Dimension(264,221));
+		System.out.println(loginDialogPanel.getSize());
 	}
+	
+	/**
+	 * Initialize the dialog that prompts a user to add a summoner to their list of summoners. 
+	 */
+	private void initializeAddSummonerDialog()
+	{
+		addSummonerDialog = new JDialog(this, "Enter Main Summoner");
+		addSummonerNameField = new JTextField();
+		JButton addSummonerButton = new JButton("Add Summoner");
+		addSummonerButton.setActionCommand("addSummonerButton");
+		addSummonerButton.addActionListener(this);
+		JLabel summonerNameLabel = new JLabel("Summoner Name:");
+		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 14);
+		summonerNameLabel.setFont(serifFontBold);
+		
+		JPanel addSummonerPanel = new JPanel(new GridBagLayout()){
+			@Override
+			public void paintComponent(Graphics g) {
+		        super.paintComponent(g);
+		        Graphics2D g2d = (Graphics2D) g;
+		        Color color1 = new Color(241,234,212);
+			    Color color2 = new Color(222,204,155);
+			    int w = getWidth();
+			    int h = getHeight();
+			    GradientPaint gp = new GradientPaint(
+			        0, 0, color1, 0, h, color2);
+			    g2d.setPaint(gp);
+			    g2d.fillRect(0, 0, w, h);
+			}
+		};
+		GridBagConstraints c = new GridBagConstraints();
+		c.anchor = GridBagConstraints.WEST;
+		c.gridx = 0;
+		c.gridy = 0;
+		//c.ipadx = 100;
+		//c.ipady = 100;
+		c.insets = new Insets(20,50,10,50);
+		addSummonerPanel.add(summonerNameLabel, c);
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.gridy = 1;
+		c.insets = new Insets(0,50,10,50);
+		addSummonerPanel.add(addSummonerNameField, c);
+		c.anchor = GridBagConstraints.CENTER;
+		c.gridy = 2;
+		addSummonerPanel.add(addSummonerButton, c);
+		addSummonerDialog.add(addSummonerPanel);
+	}
+	
 	
 	private JPanel createCloseableChampPerfTab(String championName)
 	{
@@ -549,7 +840,17 @@ public class StatController extends JFrame implements ActionListener{
 		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 14);
 		Font serifFont = new Font(Font.SERIF, Font.PLAIN, 14);
 		champPerformancePanel.setLayout(new GridBagLayout());
-		ArrayList<Match> matchesForChamp = (ArrayList<Match>)mr.getMatchesByChampionPlayed(championName);
+		champPerformancePanel.setBorder(null);
+		ArrayList<Match> matchesForChamp;
+		if(mr != null)
+		{
+			matchesForChamp = (ArrayList<Match>)mr.getMatchesByChampionPlayed(championName);
+		}
+		else
+		{
+			matchesForChamp = new ArrayList<Match>();
+		}
+		
 		
 		//Sort this champ's matches by game
 		Collections.sort(matchesForChamp, new Comparator<Match>(){
@@ -591,7 +892,7 @@ public class StatController extends JFrame implements ActionListener{
 		DecimalFormat dformat = new DecimalFormat("##0.00");
 		JLabel championWinRate = new JLabel(dformat.format(calculateWinRateAsPercent(matchesForChamp)) + "%");
 		championWinRate.setFont(serifFont);
-		championWinRate.setMinimumSize(new Dimension(44,19));
+		championWinRate.setMinimumSize(new Dimension(55,19));
 		c.gridx=1;
 		champPerformancePanel.add(championWinRate, c);
 		
@@ -681,13 +982,23 @@ public class StatController extends JFrame implements ActionListener{
 		return champPerformancePanel;
 	}
 	
+	private void reloadRecentMatchesForCurrentSummoner()
+	{
+		// Empty the match list.
+		matchListModel.removeAllElements();
+		for(Match m : mr.getAllMatchesWithDate())
+		{
+			matchListModel.addElement(m);
+		}
+	}
+	
 	public void updateStatPanelWithMatches(String championName, ArrayList<Match> matchesPlayedOnChamp)
 	{
 		int tabIndex = mainWindow.indexOfTab(championName);
 		JPanel panel = (JPanel) mainWindow.getComponentAt(tabIndex);
 		JLabel champWinRate = (JLabel) panel.getComponent(2);
 		DecimalFormat dformat = new DecimalFormat("##0.00");
-		champWinRate.setText(dformat.format(calculateWinRateAsPercent(matchesPlayedOnChamp)));
+		champWinRate.setText(dformat.format(calculateWinRateAsPercent(matchesPlayedOnChamp)) + "%");
 		System.out.println(panel.getComponentCount());
 		System.out.println(champWinRate.getSize());
 		
@@ -708,6 +1019,7 @@ public class StatController extends JFrame implements ActionListener{
 		DecimalFormat dformat = new DecimalFormat("##0.00");
 		((JLabel)statPanel.getComponent(1)).setText(dformat.format(newValue));
 	}
+
 	
 	/**
 	 * Takes an {@code ArrayList} of matches and returns the percentage of games that are victorious.
@@ -830,14 +1142,56 @@ public class StatController extends JFrame implements ActionListener{
 		}
 	}
 	
-	private boolean isInteger(String s)
+	private void updateChangeAndRemoveSummonerMenu()
 	{
-		try { 
-	        Integer.parseInt(s); 
-	    } catch(NumberFormatException e) { 
-	        return false; 
-	    }
-	    return true;
+		ArrayList<String> summoners = new ArrayList<String>(info.getSummonerList());
+		System.out.println(mainMenuBar.getMenuCount());
+		JMenu summonerMenu = mainMenuBar.getMenu(1);
+		JMenu removeSummonerMenu = (JMenu) summonerMenu.getMenuComponent(1);
+		removeSummonerMenu.removeAll();
+		if(summoners.size() > 0)
+		{
+
+			Collections.sort(summoners);
+			for(String s : summoners)
+			{
+				JMenuItem removeSummonerMenuItem = new JMenuItem(s);
+				removeSummonerMenuItem.addActionListener(this);
+				removeSummonerMenuItem.setActionCommand("remove|" + s);
+				removeSummonerMenu.add(removeSummonerMenuItem);
+			}
+		}
+		else
+		{
+			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
+			noChoiceItem.setEnabled(false);
+			removeSummonerMenu.add(noChoiceItem);
+		}
+
+		
+		JMenu changeSummonerMenu = (JMenu) summonerMenu.getMenuComponent(2);
+		changeSummonerMenu.removeAll();
+		if(summoners.size() > 0)
+		{
+			
+			for(String s : summoners)
+			{
+				JMenuItem changeSummonerMenuItem = new JMenuItem(s);
+				changeSummonerMenuItem.addActionListener(this);
+				changeSummonerMenuItem.setActionCommand("change|" + s);
+				if(s.equalsIgnoreCase(currentSummoner))
+				{
+					changeSummonerMenuItem.setEnabled(false);
+				}
+				changeSummonerMenu.add(changeSummonerMenuItem);
+			}
+		}
+		else
+		{
+			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
+			noChoiceItem.setEnabled(false);
+			changeSummonerMenu.add(noChoiceItem);
+		}
 	}
 
 	private class MatchCheckPanel extends JPanel implements ItemListener
@@ -900,9 +1254,6 @@ public class StatController extends JFrame implements ActionListener{
 			matchesToShow.add(dominion);
 			
 			System.out.println(matchesToShow);
-			
-			Font serifFontBold = new Font(Font.SERIF, Font.BOLD, 12);
-			Font serifFont = new Font(Font.SERIF, Font.PLAIN, 12);
 			
 			bot5v5Box = new JCheckBox();
 			createBoxAndLabel(0, 0, "Summoner's Rift (Bot)", bot5v5Box);
@@ -1066,8 +1417,5 @@ public class StatController extends JFrame implements ActionListener{
 			
 			return matchesToReturn;
 		}
-		
-		
-		
 	}
 }
