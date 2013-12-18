@@ -1,0 +1,18 @@
+{
+   "_id": "_design/Match",
+   "language": "javascript",
+   "views": {
+       "all": {
+           "map": "function(doc) { emit(null, doc) }"
+       },
+       "by_gameId": {
+           "map": "function(doc) { if (doc.gameId != 0) emit(doc.gameId, doc) }"
+       },
+       "by_championPlayed": {
+           "map": "function(doc) { if (doc.championPlayed) emit(doc.championPlayed, doc) }"
+       },
+       "by_date": {
+           "map": "function(doc) { if (doc.date) emit(doc.date,doc) }"
+       }
+   }
+}
