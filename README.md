@@ -1,3 +1,17 @@
+# LoLStatTracker
+#### By Reed Johnson
+
+LoLStatTracker is a Java tool that allows players to track their individual performance in [League of Legends](http://www.leagueoflegends.com). It is built using the Java library [LeagueLib](http://github.com/achimala/leaguelib). 
+
+Players can:
+* See their recent match history for individual champions
+* See their recent match history overall
+* Filter their champion-specific match history to only show certain queues
+* Track matches for multiple summoners at a time
+
+All that is required is that a user have an active League of Legends account that they can use to log in with. Once a user logs in their information is used immediately to add the 10 most recent matches to the local database, log in information is not stored by the tool. 
+
+
 # LeagueLib
 #### By [Anshu Chimala](http://www.achimala.com), Tyrus Tenneson, and Gavin Saldanha.
 
