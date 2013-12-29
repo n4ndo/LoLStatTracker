@@ -386,6 +386,8 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
         _itemIcons.put(3290, "res/itemIcon/Twin_Shadows.png");
         _itemIcons.put(3023, "res/itemIcon/Twin_Shadows.png");
         _itemIcons.put(3112, "res/itemIcon/Orb_of_Winter.png"); 
+        _itemIcons.put(2052, "res/itemIcon/Poro-Snax.png");
+        _itemIcons.put(1075,"res/itemIcon/Doran's_Blade.png");
     }
 	
 	private JLabel champLabel;
@@ -398,6 +400,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	private JLabel item0Label, item1Label, item2Label, item3Label, item4Label, item5Label, trinketLabel;
 	private JPanel itemPanel;
 	private ArrayList<JLabel> itemLabels;
+	
 	public MatchCellRenderer(CellSize size) {
 		setLayout(new GridBagLayout());
 		setBorder(BorderFactory.createLineBorder(Color.black));
@@ -622,6 +625,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		
 				ImageIcon champIcon = new ImageIcon(champIconPath, matchSelected.getChampionPlayed());
 				champLabel.setIcon(champIcon);
+
 				Border iconOutline;
 				if(matchSelected.getWin() == 1)
 				{
@@ -637,20 +641,24 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 				
 				int i = 0;
 				ArrayList<Integer> itemsBought = matchSelected.getItemsBought();
-				//System.out.println(itemsBought.size());
-				//System.out.println(matchSelected.getChampionPlayed());
+
 				for(JLabel itemLabel : itemLabels)
 				{
-				//	System.out.println("Item bought: " + LeagueItem.getItemNameFromId(itemsBought.get(i)));
-				//	System.out.println("Items bought id: " + itemsBought.get(i));
-					//String itemPath = _itemIcons.get(getItemIconById(i));
-					
-					ImageIcon itemIcon = new ImageIcon(getItemIconById(itemsBought.get(i))); 
-					itemLabel.setIcon(itemIcon);
+
+					String itemPath = getItemIconById(itemsBought.get(i));
+					if(itemPath != null)
+					{
+						ImageIcon itemIcon = new ImageIcon(itemPath); 
+						itemLabel.setIcon(itemIcon);
+					}
 					i++;
 				}
-				ImageIcon trinketIcon = new ImageIcon(_itemIcons.get(matchSelected.getTrinket()));
-				trinketLabel.setIcon(trinketIcon);
+				String trinketPath = getItemIconById(matchSelected.getTrinket());
+				if(trinketPath != null)
+				{
+					ImageIcon trinketIcon = new ImageIcon(trinketPath);
+					trinketLabel.setIcon(trinketIcon);
+				}
 				
 				
 				killCount.setText(Integer.toString(matchSelected.getNumKills()));
@@ -674,7 +682,6 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	private String fromInternalToReadableMMQueueName(String internalQueueName)
 	{
 		String externalQueueName = "";
-		
 		if(internalQueueName.equals("ARAM_UNRANKED_5x5"))
 		{
 			externalQueueName = "Howling Abyss";
@@ -715,6 +722,10 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		{
 			externalQueueName = "One For All";
 		}
+		else if(internalQueueName.equals("NONE"))
+		{
+			externalQueueName = "Custom";
+		}
 		else
 		{
 			externalQueueName = "Gametype Not Found";
@@ -725,11 +736,6 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	public static Map<String, String> getChampionIconMap()
 	{
 		return Collections.unmodifiableMap(_champIcons);
-	}
-	
-	public static String getChampIconByName(String champName)
-	{
-		return _champIcons.get(champName);
 	}
 
 	public static String getItemIconById(int itemId)
@@ -743,7 +749,28 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		else
 		{
 			System.out.println("Missing item: " + itemId);
-			return "empty";
+			return null;
+		}
+	}
+	
+	/**
+	 * Returns the string filename of a champion's icon if the {@code champName}
+	 * is the name of a League of Legends champion. Returns null if the champion 
+	 * {@code champName} is not in {@code _champIcons}.
+	 * @param champName A string champion name. The safest way to use this is to get
+	 * the name from the {@link LeagueChampion} class. 
+	 * @return The {@code String} relative path name of the champion icon for {@code champName} 
+	 * or {@code null} if the champion cannot be found in {@code _champIcons}.
+	 */
+	public static String getChampIconByName(String champName)
+	{
+		if(_champIcons.containsKey(champName))
+		{
+			return _champIcons.get(champName);
+		}
+		else
+		{
+			return null;
 		}
 	}
 }

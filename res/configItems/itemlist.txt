@@ -221,3 +221,4 @@ Greater Orb (costs: 0) = 3352
 Twin Shadows (costs: 1800) = 3290
 Twin Shadows (costs: 2000) = 3023
 Orb of Winter (costs: 2080) = 3112
+Doran's Blade [Showdown] (costs: 440) = 1075

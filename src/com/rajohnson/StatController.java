@@ -108,6 +108,13 @@ public class StatController extends JFrame implements ActionListener{
 	 */
 	public StatController()
 	{
+		initializeStatWindow();	
+	}
+
+	/**
+	 * Initializes the main display window. 
+	 */
+	private void initializeStatWindow() {
 		setLayout(new GridBagLayout());
 		setTitle("LoL Stat Tracker");
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -123,28 +130,12 @@ public class StatController extends JFrame implements ActionListener{
 		summonerLabel.setOpaque(false);
 		summonerLabel.setForeground(Color.WHITE);
 		
-		Map<Integer,Map<String,Object>> itemList = LeagueItem.getItemList();
-		try(BufferedWriter itemOut = new BufferedWriter(new FileWriter("res/itemArray.txt")))
-		{
-			for(Integer item : itemList.keySet())
-			{
-				String itemName = (String) itemList.get(item).get("Name");
-				itemName = itemName.substring(0,itemName.length()-1).replaceAll(" ", "_");
-				itemName += ".png";
-				itemOut.write("_itemIcons.put(" + item + ",\"res/itemIcon/" + itemName + "\");\n");
-			}
-		}
-		catch(IOException e)
-		{
-			System.out.println("Well shit something went wrong. ");
-		}
-		
 		
 		mr = null;
 		//Load info from the config file. 
 		
 		mainWindow = new JTabbedPane(JTabbedPane.LEFT);
-		
+		currentSummoner = new String();
 		if(info.getMainSummoner().length() < 1)
 		{
 			JOptionPane.showMessageDialog(this, welcomeMessage, "Welcome", JOptionPane.INFORMATION_MESSAGE);
@@ -157,7 +148,7 @@ public class StatController extends JFrame implements ActionListener{
 		{
 			currentSummoner = info.getMainSummoner().toLowerCase();	
 		}
-		
+		//Set the title that shows the name of the current summoner
 		currentSummonerLabel = new JLabel(info.getMainSummoner());
 		currentSummonerLabel.setOpaque(false);
 		currentSummonerLabel.setFont(serifFont);
@@ -260,13 +251,14 @@ public class StatController extends JFrame implements ActionListener{
 		mainC.fill=GridBagConstraints.HORIZONTAL;
 		this.add(updateButton, mainC);
 		
-		this.pack();	
+		this.pack();
 	}
 	
 
 	public void actionPerformed(ActionEvent e)
 	{
-		System.out.println(e.getActionCommand());
+		//Tokenize the action command. If it has a '|' then there will be 2 tokens and
+		//code enters the 'hasTwoTokens' code block.
 		StringTokenizer strtok = new StringTokenizer(e.getActionCommand(),"|");
 		String firstToken = new String();
 		boolean hasTwoTokens = false;
@@ -277,6 +269,7 @@ public class StatController extends JFrame implements ActionListener{
 		}
 		if(e.getActionCommand().equals("update"))
 		{
+			//Initialize and display the login dialog for updating the stats.
 			initializePasswordDialog();
 			loginDialog.pack();
 			loginDialog.setLocationRelativeTo(null);
@@ -300,8 +293,6 @@ public class StatController extends JFrame implements ActionListener{
 				}
 				else if(summonerName.length() > 0)
 				{
-					System.out.println("Main summoner: " + info.getMainSummoner());
-					System.out.println("Main summoner is empty: " + info.getMainSummoner().isEmpty());
 					info.addSummoner(summonerName);
 					if(info.getMainSummoner().length() < 1)
 					{
@@ -318,36 +309,42 @@ public class StatController extends JFrame implements ActionListener{
 		}
 		else if(e.getActionCommand().equalsIgnoreCase("addSummonerMenu"))
 		{
-			System.out.println("I got here");
+			//Initialize and display the add summoner dialog. 
 			initializeAddSummonerDialog();
 			addSummonerDialog.pack();
 			addSummonerDialog.setLocationRelativeTo(null);
 			addSummonerDialog.setVisible(true);
 		}
-		//Close a champ performance tab.
 		else if(hasTwoTokens)
 		{
+			//Removes a champion performance tab
 			if(firstToken.equalsIgnoreCase("tab"))
 			{
 				String champName = strtok.nextToken();
 				int indexOfTab = mainWindow.indexOfTab(champName);
 				mainWindow.removeTabAt(indexOfTab);
 			}
+			//Removes a summoner from tracking
 			else if(firstToken.equalsIgnoreCase("remove"))
 			{
 				String summonerName = strtok.nextToken();
-				System.out.println("Remove summoner: " + summonerName);
+				removeSummonerFromTracking(summonerName);
 			}
+			//Changes the currently displayed summoner
 			else if(firstToken.equalsIgnoreCase("change"))
 			{
 				String summonerName = strtok.nextToken();
-				System.out.println("Change summoner to " + summonerName + " from " + currentSummoner);
 				changeCurrentSummonerAndUpdateDisplay(summonerName);
 			}
+			//Changes the default summoner that is loaded on startup
+			else if(firstToken.equalsIgnoreCase("main"))
+			{
+				String summonerName = strtok.nextToken();
+				changeMainSummonerAndUpdateDisplay(summonerName);
+			}
 		}
-		else 
+		else if(MatchCellRenderer.getChampIconByName(e.getActionCommand()) != null)
 		{
-			//TODO: FIX THIS. THIS IS CAUSING NULL POINTER EXCEPTIONS
 			if((mr != null) && mr.isRepoConnected())
 			{
 				mr.printStatsByChampionPlayed(e.getActionCommand());
@@ -392,13 +389,34 @@ public class StatController extends JFrame implements ActionListener{
 				MatchRepository mr = new MatchRepository(db, currentSummoner);*/
 			}
 		}
+		else if(e.getActionCommand().equals("exit"))
+		{
+			// This is where cleanup can be done if some needs to be done
+			System.exit(0);
+		}
 	}
 
+	/**
+	 * Sets the display to show a default when no summoners are registered for the LoLStatTracker.
+	 * This should not be called during initialization as it assumes the display is already created. 
+	 */
+	private void setDisplayForNoSummoner()
+	{
+		 matchListModel.removeAllElements();
+		 removeChampStatPanels();
+		 currentSummonerLabel.setText("None");
+	}
 
+	/**
+	 * Changes the currently displayed summoner, clears all open champion tabs, updates the menus to make the new current summoner
+	 * be unselectable when appropriate, and updates the title. 
+	 * @param summonerName The summoner to display.
+	 */
 	private void changeCurrentSummonerAndUpdateDisplay(String summonerName) {
 		removeChampStatPanels();
 
 		currentSummoner = summonerName;
+		currentSummonerLabel.setText(currentSummoner);
 
 		initializeMatchRepositoryForSummoner(summonerName);
 
@@ -407,6 +425,48 @@ public class StatController extends JFrame implements ActionListener{
 		updateChangeAndRemoveSummonerMenu();
 	}
 	
+	/**
+	 * Changes the summoner that is displayed by default when LoLStatTracker opens.
+	 * @param summonerName The summoner who should be loaded when the program opens.
+	 */
+	private void changeMainSummonerAndUpdateDisplay(String summonerName)
+	{
+		info.setMainSummoner(summonerName);
+		info.writeInfoToResourceFile();
+		ArrayList<String> summoners = new ArrayList<String>(info.getSummonerList());
+		JMenu summonerMenu = mainMenuBar.getMenu(1);
+		
+		//Clear the menu, reload it, and set the main summoner as unenabled.
+		JMenu changeMainSummonerMenu = (JMenu) summonerMenu.getMenuComponent(3);
+		changeMainSummonerMenu.removeAll();
+		if(summoners.size() > 0)
+		{
+			for(String s : summoners)
+			{
+				JMenuItem changeMainSummonerMenuItem = new JMenuItem(s);
+				changeMainSummonerMenuItem.addActionListener(this);
+				changeMainSummonerMenuItem.setActionCommand("main|" + s);
+				if(s.equalsIgnoreCase(info.getMainSummoner()))
+				{
+					changeMainSummonerMenuItem.setEnabled(false);
+				}
+				changeMainSummonerMenu.add(changeMainSummonerMenuItem);
+			}
+			
+		}
+		else
+		{
+			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
+			noChoiceItem.setEnabled(false);
+			changeMainSummonerMenu.add(noChoiceItem);
+		}
+	}
+	
+	/**
+	 * Creates a {@code JMenuBar} to be used by LoLStatTracker. This function should be called during initialization of the window.
+	 * Menu items created are {@code Exit}, {@code Add Summoner}, {@code Remove Summoner}, {@code Change Summoner}, {@code Change Main Summoner}.
+	 * @return A full initialized {@code JMenuBar} 
+	 */
 	private JMenuBar createMenuBar()
 	{
 		JMenuBar menuBar = new JMenuBar();
@@ -484,8 +544,32 @@ public class StatController extends JFrame implements ActionListener{
 			changeSummonerMenu.add(noChoiceItem);
 		}
 		summonerMenu.add(changeSummonerMenu);
-		menuBar.add(summonerMenu);
 		
+		JMenu changeMainSummonerMenu = new JMenu("Change Main Summoner");
+		if(summoners.size() > 0)
+		{
+			for(String s : summoners)
+			{
+				JMenuItem changeMainSummonerMenuItem = new JMenuItem(s);
+				changeMainSummonerMenuItem.addActionListener(this);
+				changeMainSummonerMenuItem.setActionCommand("main|" + s);
+				if(s.equalsIgnoreCase(info.getMainSummoner()))
+				{
+					changeMainSummonerMenuItem.setEnabled(false);
+				}
+				changeMainSummonerMenu.add(changeMainSummonerMenuItem);
+			}
+			
+		}
+		else
+		{
+			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
+			noChoiceItem.setEnabled(false);
+			changeMainSummonerMenu.add(noChoiceItem);
+		}
+		summonerMenu.add(changeMainSummonerMenu);
+		
+		menuBar.add(summonerMenu);
 		
 		return menuBar;
 	}
@@ -514,7 +598,9 @@ public class StatController extends JFrame implements ActionListener{
 	{
 		HttpClient httpClient = new StdHttpClient.Builder().build();
 		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
-		String dbname = summonerName + "-stats";
+		//Make DB name all lower case and replace spaces with underscores
+		//because couchdb cannot handle spaces in table names.
+		String dbname = summonerName.toLowerCase().replace(" ", "") + "-stats";
      	CouchDbConnector db = dbInstance.createConnector(dbname, true);
      	mr = new MatchRepository(db, summonerName);
 	}
@@ -601,34 +687,52 @@ public class StatController extends JFrame implements ActionListener{
 	
 	/**
 	 * Connects to the League of Legends server using the username and password from the JTextField and JPassword field respectively
-	 * in the logon dialog. 
+	 * in the logon dialog. If the client version is out of date the user is prompted to update it. 
 	 */
 	private void logonAndUpdate()
 	{
 		LeagueServer serverToUse = LeagueServer.findServerByCode((String)serverComboBox.getSelectedItem());
 		final LeagueConnection c = new LeagueConnection(serverToUse);
 		try {
-			c.getAccountQueue().addAccount(new LeagueAccount(serverToUse, "3.15.xx", usernameField.getText(),
+			String clientVersionString = info.getClientVersion() + ".xx";
+			c.getAccountQueue().addAccount(new LeagueAccount(serverToUse, clientVersionString, usernameField.getText(),
 					new String(passwordField.getPassword())));
 		} catch (LeagueException e1) {
-			System.out.println(e1.getErrorCode());
 			if(e1.getErrorCode() == LeagueErrorCode.NETWORK_ERROR)
 			{
 				if(e1.getMessage().contains("client version"))
 				{
-					System.out.println("Wrong client version");
+					String inputDialogString = "The client version stored by LoLStatTracker: " + info.getClientVersion() + " is out of date.";
+					inputDialogString += "\nPlease enter the most recent patch number (e.g. 3.15)";
+					String inputValue = JOptionPane.showInputDialog(null, inputDialogString, "Update Client Version", 
+							JOptionPane.QUESTION_MESSAGE);
+					String retryDialogString = "The client version you entered: " + inputValue + " does not fit the proper format.";
+					retryDialogString += "\nPlease enter the current patch version in the format #.##";
+					while(!info.setClientVersion(inputValue))
+					{
+						inputValue = JOptionPane.showInputDialog(null, retryDialogString, "Update Client Version", JOptionPane.QUESTION_MESSAGE);
+						if(inputValue == null)
+						{
+							return;
+						}
+					}
+					logonAndUpdate();
 				}
-				else if(e1.getMessage().contains("username or password"))
+				else if(e1.getMessage().contains("403"))
 				{
-					System.out.println("Wrong log in info");
+					String outputDialogString = "Either your username, password, or server was incorrect. Please try again.";
+					JOptionPane.showMessageDialog(null, outputDialogString, "Invalid Username or Password", JOptionPane.WARNING_MESSAGE);
+					initializePasswordDialog();
+					loginDialog.pack();
+					loginDialog.setLocationRelativeTo(null);
+					loginDialog.setVisible(true);
 				}
 			}
 			else if(e1.getErrorCode() == LeagueErrorCode.AUTHENTICATION_ERROR)
 			{
-				System.out.println("You goofed on the logon man!");
+				String outputDialogString = "An authentication error occured.";
+				JOptionPane.showMessageDialog(null, outputDialogString, "Authentication Error", JOptionPane.WARNING_MESSAGE);
 			}
-			
-			e1.printStackTrace();
 			return;
 		}
 		
@@ -675,13 +779,6 @@ public class StatController extends JFrame implements ActionListener{
 	        {
 	        	matchToWrite = new Match();
 	        	LeagueChampion  matchChamp = match.getChampionSelectionForSummoner(player);
-	        	System.out.println("Played game " + match.getQueue() + " as " + matchChamp);
-	        	System.out.println("\tKills: " + match.getStat(MatchHistoryStatType.CHAMPIONS_KILLED) + " Assists: " + match.getStat(MatchHistoryStatType.ASSISTS) + " Deaths: " + match.getStat(MatchHistoryStatType.NUM_DEATHS));
-	        	System.out.println("\tMinion Kills: " + Integer.toString(match.getStat(MatchHistoryStatType.MINIONS_KILLED) + match.getStat(MatchHistoryStatType.NEUTRAL_MINIONS_KILLED)) + 
-	        			" Gold Earned: " + match.getStat(MatchHistoryStatType.GOLD_EARNED));
-	        	System.out.println("\t" + match.getStat(MatchHistoryStatType.ITEM0) + " " + match.getStat(MatchHistoryStatType.ITEM1));
-	        	System.out.println("\tVictory: " + match.getStat(MatchHistoryStatType.WIN));
-	        	System.out.println("\tGame ID: " + match.getGameId());
 	        	
 	        	matchToWrite.setGameId(match.getGameId());
 	        	matchToWrite.setMatchmakingQueue(match.getQueue().name());
@@ -731,7 +828,6 @@ public class StatController extends JFrame implements ActionListener{
 		JLabel passwordLabel = new JLabel("Password:");
 		usernameField = new JTextField();
 		passwordField = new JPasswordField();
-		passwordField.addActionListener(this);
 		loginDialogPanel.add(loginLabel, c);
 		
 		c.insets = new Insets(5,0,5,0);
@@ -751,7 +847,6 @@ public class StatController extends JFrame implements ActionListener{
 		int i = 0;
 		for(LeagueServer server : LeagueServer.values())
 		{
-			System.out.println(server.getServerCode());
 			serverCodes[i] = server.getServerCode();
 			i++;
 		}
@@ -768,7 +863,6 @@ public class StatController extends JFrame implements ActionListener{
 		
 		loginDialog.add(loginDialogPanel);
 		loginDialog.setPreferredSize(new Dimension(264,221));
-		System.out.println(loginDialogPanel.getSize());
 	}
 	
 	/**
@@ -973,8 +1067,7 @@ public class StatController extends JFrame implements ActionListener{
 		c.fill = GridBagConstraints.BOTH;
 		c.weightx = 0.75;
 		c.weighty = 0.75;
-		champPerformancePanel.add(champMatchScrollPane, c);
-		//TODO: HAVE MATCHCHECKPANEL TAKE THE DEFAULTLISTMODEL SO I CAN WORK ON IT DIRECTLY.  
+		champPerformancePanel.add(champMatchScrollPane, c); 
 		MatchCheckPanel checkboxPanel = new MatchCheckPanel(championName, matchesForChamp, champMatchScrollPane, this);
 		c.gridx=2;
 		c.gridy=0;
@@ -999,8 +1092,6 @@ public class StatController extends JFrame implements ActionListener{
 		JLabel champWinRate = (JLabel) panel.getComponent(2);
 		DecimalFormat dformat = new DecimalFormat("##0.00");
 		champWinRate.setText(dformat.format(calculateWinRateAsPercent(matchesPlayedOnChamp)) + "%");
-		System.out.println(panel.getComponentCount());
-		System.out.println(champWinRate.getSize());
 		
 		JPanel champPerformancePanel = (JPanel)panel.getComponent(3);
 		JPanel killPanel = (JPanel) champPerformancePanel.getComponent(0);
@@ -1142,10 +1233,36 @@ public class StatController extends JFrame implements ActionListener{
 		}
 	}
 	
+	
+	
+	private void removeSummonerFromTracking(String summonerName)
+	{
+		info.removeSummoner(summonerName);
+		info.writeInfoToResourceFile();
+		ArrayList<String> summonerList =  info.getSummonerList();
+		if(summonerList.size() == 0)
+		{
+			setDisplayForNoSummoner();
+			updateChangeAndRemoveSummonerMenu();
+		}
+		else if(summonerList.size() > 0)
+		{
+			// If the summoner removed was the current summoner, update the display.
+			if(summonerName.equalsIgnoreCase(currentSummoner))
+			{
+				changeCurrentSummonerAndUpdateDisplay(info.getMainSummoner());
+			}
+			updateChangeAndRemoveSummonerMenu();
+		}
+	}
+	/**
+	 * A function that updates the change and remove summoner menu items in the 
+	 * menu bar. This should be called whenever the current summoner is updated or
+	 * a summoner is removed. 
+	 */
 	private void updateChangeAndRemoveSummonerMenu()
 	{
 		ArrayList<String> summoners = new ArrayList<String>(info.getSummonerList());
-		System.out.println(mainMenuBar.getMenuCount());
 		JMenu summonerMenu = mainMenuBar.getMenu(1);
 		JMenu removeSummonerMenu = (JMenu) summonerMenu.getMenuComponent(1);
 		removeSummonerMenu.removeAll();
@@ -1191,6 +1308,29 @@ public class StatController extends JFrame implements ActionListener{
 			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
 			noChoiceItem.setEnabled(false);
 			changeSummonerMenu.add(noChoiceItem);
+		}
+		JMenu changeMainSummonerMenu = (JMenu) summonerMenu.getMenuComponent(3);
+		changeMainSummonerMenu.removeAll();
+		if(summoners.size() > 0)
+		{
+			for(String s : summoners)
+			{
+				JMenuItem changeMainSummonerMenuItem = new JMenuItem(s);
+				changeMainSummonerMenuItem.addActionListener(this);
+				changeMainSummonerMenuItem.setActionCommand("main|" + s);
+				if(s.equalsIgnoreCase(info.getMainSummoner()))
+				{
+					changeMainSummonerMenuItem.setEnabled(false);
+				}
+				changeMainSummonerMenu.add(changeMainSummonerMenuItem);
+			}
+			
+		}
+		else
+		{
+			JMenuItem noChoiceItem = new JMenuItem("No Summoners Found");
+			noChoiceItem.setEnabled(false);
+			changeMainSummonerMenu.add(noChoiceItem);
 		}
 	}
 
@@ -1252,8 +1392,6 @@ public class StatController extends JFrame implements ActionListener{
 			matchesToShow.add(ranked3v3);
 			matchesToShow.add(oneForAll);
 			matchesToShow.add(dominion);
-			
-			System.out.println(matchesToShow);
 			
 			bot5v5Box = new JCheckBox();
 			createBoxAndLabel(0, 0, "Summoner's Rift (Bot)", bot5v5Box);
@@ -1351,7 +1489,6 @@ public class StatController extends JFrame implements ActionListener{
 				addOrRemoveMatch(arg0,matchesToShow,dominion);
 			}
 			
-			System.out.println("Matches to show contains bot game: " + matchesToShow.contains(bot5v5));
 			int tabIndex = mainWindow.indexOfTab(m_ChampName);
 			JPanel champPerfPanel = (JPanel)mainWindow.getComponent(tabIndex);
 			int componentCount = champPerfPanel.getComponentCount();

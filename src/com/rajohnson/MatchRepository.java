@@ -213,6 +213,7 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
 			itemsBought.add(rNode.get("itemsBought").get(i).intValue());
 		}
 		matchToReturn.setItemsBought(itemsBought);
+		matchToReturn.setTrinket(rNode.get("trinket").intValue());
 		if(rNode.has("date"))
 		{
 			String dateString = rNode.get("date").textValue();

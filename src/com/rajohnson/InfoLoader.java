@@ -19,6 +19,7 @@ public class InfoLoader {
 	private String loginId;
 	private HashMap<String, LeagueServer> summonerServerMap;
 	private LeagueServer mainServer;
+	private String clientVersion;
 	
 	public InfoLoader() {
 		 summonerList = new ArrayList<String>();
@@ -26,6 +27,7 @@ public class InfoLoader {
 		 loginId = "";
 		 summonerServerMap = new HashMap<String,LeagueServer>();
 		 mainServer = LeagueServer.NORTH_AMERICA;
+		 clientVersion = "1.00";
 	}
 	
 	public void addSummoner(String summonerName)
@@ -36,6 +38,33 @@ public class InfoLoader {
 			System.out.println(summonerName + " is not in the list of summoners.");
 			summonerList.add(summonerName);
 			System.out.println(summonerList);
+		}
+	}
+	
+	/**
+	 * Removes the summoner {@code summonerName}. If this summoner was the 
+	 * main summoner, then the main summoner is changed to either no one (if 
+	 * there are no more summoners in the {@code summonerList}) or the first summoner
+	 * in the {@code summonerList}.
+	 * @param summonerName The name of a summoner that is currently being tracked by
+	 * this machine's instance of LoLStatTracker. 
+	 */
+	public void removeSummoner(String summonerName)
+	{
+		if(summonerList.contains(summonerName))
+		{
+			summonerList.remove(summonerName);
+		}
+		if(mainSummoner.equals(summonerName))
+		{
+			if(summonerList.size() < 1)
+			{
+				mainSummoner = new String();
+			}
+			else
+			{
+				mainSummoner = summonerList.get(0);
+			}
 		}
 	}
 	
@@ -94,12 +123,12 @@ public class InfoLoader {
 			loginId = rootNode.path("loginId").getTextValue();
 			mainSummoner = rootNode.path("mainSummoner").getTextValue();
 			mainServer = LeagueServer.findServerByCode(rootNode.path("mainServer").getTextValue());
+			clientVersion = rootNode.path("client version").getTextValue();
 			Iterator<String> fieldIterator = rootNode.getFieldNames();
 			while(fieldIterator.hasNext())
 			{
 				String currentField = fieldIterator.next();
-				if(currentField.equals("loginId") || currentField.equals("mainSummoner")
-						|| currentField.equals("mainServer"))
+				if(!currentField.startsWith("summoner"))
 				{
 					continue;
 				}
@@ -118,13 +147,42 @@ public class InfoLoader {
 		return true;
 	}
 	
+	public String getClientVersion()
+	{
+		return clientVersion;
+	}
+	
+	/**
+	 * Sets the {@code clientVersion} parameter to be {@code newClientVersion} as long
+	 * as the client version string matches the exact format: "#.##". If the format
+	 * is updated then the config file is updated automatically.
+	 * @param newClientVersion
+	 * @return True if the client version is set successfully.
+	 */
+	public boolean setClientVersion(String newClientVersion)
+	{
+		System.out.println("At least I got here...");
+		System.out.print("New client version: " + newClientVersion);
+		System.out.println(" here is the test.");
+		if(newClientVersion.matches("[0-9]\\.[0-9]{2}"))
+		{
+			System.out.println("The new client version is better!");
+			clientVersion = newClientVersion;
+			writeInfoToResourceFile();
+			return true;
+		}
+		return false;
+	}
+	
 	public boolean writeInfoToResourceFile()
 	{
 		ObjectMapper objMapper = new ObjectMapper();
 		ObjectNode infoObj = objMapper.createObjectNode();
 		infoObj.put("loginId", loginId);
 		infoObj.put("mainSummoner",mainSummoner);
+		infoObj.put("client version", clientVersion);
 		infoObj.put("mainServer", mainServer.getServerCode());
+		
 
 		int i = 0;
 		for(String summonerName : summonerList)
@@ -142,22 +200,5 @@ public class InfoLoader {
 			e.printStackTrace();
 		}
 		return true;
-	}
-	
-	/**
-	 * Checks whether or not the given summoner is already stored in the config file. 
-	 * @param summonerName The name of the summoner to check.
-	 * @return
-	 */
-	private boolean summonerIsStored(String summonerName)
-	{
-		for(String name : summonerList)
-		{
-			if(name.equalsIgnoreCase(summonerName))
-			{
-				return true;
-			}
-		}
-		return false;
 	}
 }

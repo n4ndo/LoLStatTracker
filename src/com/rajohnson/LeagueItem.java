@@ -4,8 +4,6 @@ import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.achimala.util.BidirectionalMap;
-
 /**
  * LeagueItem is a class that defines the map of items and cost. This is taken from the LeagueLibExtended project on
  * BastBotSupport's github page. 
