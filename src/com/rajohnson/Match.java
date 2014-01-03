@@ -2,6 +2,7 @@ package com.rajohnson;
 
 import java.util.ArrayList;
 import java.util.Date;
+import org.codehaus.jackson.annotate.*;
 
 import org.ektorp.support.CouchDbDocument;
 
@@ -12,6 +13,7 @@ public class Match extends CouchDbDocument{
 	private int gameId;
 	private String matchmakingQueue;
 	private String championPlayed;
+	private int championId;
 	private int win;
 	private int numKills;
 	private int numAssists;
@@ -21,11 +23,16 @@ public class Match extends CouchDbDocument{
 	private ArrayList<Integer> itemsBought;
 	private int trinket;
 	private Date datePlayed;
+	//private String _id;
+	//private String _rev;
 	
 	public Match() {
 		gameId = 0;
 		matchmakingQueue = "Custom";
 		championPlayed = "Urf";
+		//_id = "0";
+		//_rev = "1";
+		championId = 0;
 		win = -1;
 		numKills = 0;
 		numAssists = 0;
@@ -35,6 +42,7 @@ public class Match extends CouchDbDocument{
 		itemsBought = new ArrayList<Integer>(6);
 		trinket = 0;
 		datePlayed = new Date(0);
+		
 	}
 	
 	/**
@@ -89,6 +97,25 @@ public class Match extends CouchDbDocument{
 	public void setChampionPlayed(String champion)
 	{
 		championPlayed = champion;
+	}
+	
+	/**
+	 * Returns the ID for the champion played in a given {@code Match}.
+	 * @return The {@code int} ID of the champion played by a summoner for the given {@code Match}.
+ 	 */
+	public int getChampionId()
+	{
+		return championId;
+	}
+	
+	
+	/**
+	 * Sets the ID for the champion played in a given {@code Match}.
+	 * @param id The {@code int} ID of the champion played by a summoner in the given {@code Match}.
+	 */
+	public void setChampionId(int id)
+	{
+		championId = id;
 	}
 	
 	/**
@@ -236,6 +263,30 @@ public class Match extends CouchDbDocument{
 	{
 		datePlayed = matchDate;
 	}
+	
+	/*@JsonProperty("_id")
+	public String getDocId()
+	{
+		return _id;
+	}
+	
+	@JsonProperty("_id")
+	public void setDocId(String newId)
+	{
+		_id = newId;
+	}
+	
+	@JsonProperty("_rev")
+	public String getRevision()
+	{
+		return _rev;
+	}
+	
+	@JsonProperty("_rev")
+	public void setRevision(String newRev)
+	{
+		_rev = newRev;
+	}*/
 	
 	@Override
 	public String toString()

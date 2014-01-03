@@ -78,6 +78,50 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
 	}
 	
 	/**
+	 * Returns all the matches for a summoner.
+	 * @return An {@code ArrayList<Match>} of all the matches stored for a given summoner
+	 */
+	public ArrayList<Match> getAllMatches()
+	{
+		ArrayList<Match> matches = new ArrayList<Match>();
+		
+		
+		try
+		{
+			ViewResult result = db.queryView(createQuery("all"));
+			for(Row r : result.getRows())
+			{
+				matches.add(getMatchFromRow(r));
+			}
+		}
+		catch(DocumentNotFoundException e)
+		{
+			String fileLocation = matchDocumentLocation;
+			try(BufferedReader inFile = new BufferedReader(new FileReader(fileLocation)))
+			{
+				createStandardDesignDocument();
+				ViewResult result = db.queryView(createQuery("all"));
+				for(Row r : result.getRows())
+				{
+					matches.add(getMatchFromRow(r));
+				}
+			}
+			catch(IOException ex)
+			{
+				ex.printStackTrace();
+			}
+			catch(DocumentNotFoundException ex)
+			{
+				ex.printStackTrace();
+				
+			}
+		}
+		
+		return matches;
+		
+	}
+	
+	/**
 	 * Returns a vector of matches 
 	 * @return
 	 */
@@ -96,7 +140,6 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
 		catch(DocumentNotFoundException e)
 		{
 			String fileLocation = matchDocumentLocation;
-			//BufferedReader inFile = null;
 			try(BufferedReader inFile = new BufferedReader(new FileReader(fileLocation)))
 			{
 				createStandardDesignDocument();
@@ -120,40 +163,6 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
 		Vector<Match> matchesToReturn = new Vector<Match>(matches);
 		Collections.reverse(matchesToReturn);
 		return matchesToReturn;
-	}
-	
-	public void printStatsByChampionPlayed(String champion)
-	{
-		ViewResult result = db.queryView(createQuery("by_championPlayed").key(champion));
-		
-		int kills = 0;
-		int deaths = 0; 
-		int assists = 0;
-		int creepScore =  0;
-		int numGames = 0;
-		for(Row r : result.getRows())
-		{
-			JsonNode rNode = r.getValueAsNode();
-			if(!isBotGame(rNode.get("matchmakingQueue").textValue()))
-			{
-			//System.out.println(r.getValueAsNode().get("numKills"));
-			kills += r.getValueAsNode().get("numKills").intValue();
-			deaths += r.getValueAsNode().get("numDeaths").intValue();
-			assists += r.getValueAsNode().get("numAssists").intValue();
-			creepScore += r.getValueAsNode().get("minionsKilled").intValue();
-			numGames++;
-			}
-		}
-		if(numGames != 0)
-		{
-			System.out.println("Kills: " + (kills/numGames) + " Deaths: " + (deaths/numGames) + " Assists " + (assists/numGames) + " CS: " + (creepScore/numGames) + 
-					" Games Played: " + numGames);
-		}
-		else
-		{
-			System.out.println("Kills: " + 0 + " Deaths: " + 0 + " Assists " + 0 + " CS: " + 0 + " Games Played: " + 0);
-		}
-		
 	}
 	
 	/**
@@ -207,6 +216,9 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
 		matchToReturn.setNumAssists(rNode.get("numAssists").intValue());
 		matchToReturn.setMinionsKilled(rNode.get("minionsKilled").intValue());
 		matchToReturn.setGoldEarned(rNode.get("goldEarned").intValue());
+		matchToReturn.setId(rNode.get("_id").textValue());
+		matchToReturn.setRevision(rNode.get("_rev").textValue());
+		matchToReturn.setChampionId(rNode.get("championId").intValue());
 		ArrayList<Integer> itemsBought = new ArrayList<Integer>();
 		for(int i = 0; i < 6; i++)
 		{

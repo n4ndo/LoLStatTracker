@@ -159,6 +159,7 @@ public class StatController extends JFrame implements ActionListener{
 		mainMenuBar = createMenuBar();
 		
 		
+		
 		Vector<Match> matchesPlayed = null;
 		
 		//If the default summoner is not empty connect DB
@@ -252,6 +253,9 @@ public class StatController extends JFrame implements ActionListener{
 		this.add(updateButton, mainC);
 		
 		this.pack();
+		
+		//TODO: REMOVE THIS AFTER DB UPDATE IS MADE
+		//addChampIdForAllChampNames();
 	}
 	
 
@@ -347,7 +351,7 @@ public class StatController extends JFrame implements ActionListener{
 		{
 			if((mr != null) && mr.isRepoConnected())
 			{
-				mr.printStatsByChampionPlayed(e.getActionCommand());
+
 				JPanel newChampPanel = createCloseableChampPerfTab(e.getActionCommand());
 				if(mainWindow.indexOfTab(e.getActionCommand()) == -1)
 				{
@@ -770,6 +774,13 @@ public class StatController extends JFrame implements ActionListener{
 		}
 	}	
 	
+	/**
+	 * Constructs an {@code ArrayList} of 10 recently played matches. This function converts the {@code MatchHistoryEntry} of LeagueLib
+	 * into the {@link Match} datatype of LoLStatTracker.
+	 * @param recentMatches An {@code ArrayList} of {@code MatchHistoryEntry} objects.
+	 * @param player The {@code LeagueSummoner} associated with the list of {@code MatchHistoryEntry} objects
+	 * @return An {@code ArrayList} of the 10 most recent matches played. 
+	 */
 	protected ArrayList<Match> getMatchesToWrite(ArrayList<MatchHistoryEntry> recentMatches, LeagueSummoner player)
 	{
 
@@ -783,6 +794,7 @@ public class StatController extends JFrame implements ActionListener{
 	        	matchToWrite.setGameId(match.getGameId());
 	        	matchToWrite.setMatchmakingQueue(match.getQueue().name());
 	        	matchToWrite.setChampionPlayed(matchChamp.getName());
+	        	matchToWrite.setChampionId(LeagueChampion.getIdForChampion(matchChamp.getName()));
 	        	matchToWrite.setWin(match.getStat(MatchHistoryStatType.WIN));
 	        	matchToWrite.setNumKills(match.getStat(MatchHistoryStatType.CHAMPIONS_KILLED));
 	        	matchToWrite.setNumAssists(match.getStat(MatchHistoryStatType.ASSISTS));
@@ -1334,6 +1346,22 @@ public class StatController extends JFrame implements ActionListener{
 		}
 	}
 
+	/**
+	 * A temporary function to add champId to all of my DB entries. It's easier to have a new champ ID bring up 
+	 * a placeholder icon rather than call a champ 'Unknown' and try to figure out who it is later.
+	 * This will set me up so that I don't have to modify old DB entries when a new champ is added but I haven't released an update.
+	 */
+	private void addChampIdForAllChampNames()
+	{
+		ArrayList<Match> matches = mr.getAllMatches();
+		for(Match m : matches)
+		{
+			int champId = LeagueChampion.getIdForChampion(m.getChampionPlayed());
+			m.setChampionId(champId);
+			mr.update(m);
+		}
+	}
+	
 	private class MatchCheckPanel extends JPanel implements ItemListener
 	{
 
