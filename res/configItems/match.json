@@ -13,6 +13,9 @@
        },
        "by_date": {
            "map": "function(doc) { if (doc.date) emit(doc.date,doc) }"
+       },
+       "by_championId": {
+       	   "map": "function(doc) { if (doc.championId) emit(doc.championId, doc) }"
        }
    }
 }

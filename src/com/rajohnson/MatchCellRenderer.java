@@ -26,6 +26,7 @@ import javax.swing.ListCellRenderer;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
 
+import com.achimala.leaguelib.models.LeagueChampion;
 import com.rajohnson.Match;
 
 @SuppressWarnings("serial")
@@ -33,6 +34,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 
 	private static HashMap<String, String> _champIcons;
 	private static HashMap<Integer, String> _itemIcons;
+	private static final String noneString = "none";
 	
 	public static enum CellSize
 	{
@@ -40,7 +42,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	}
 	static {
         _champIcons = new HashMap<String,String>();
-        _champIcons.put(  "none", "nope.png" ); // represents a catch-all champion for stats
+        _champIcons.put(  noneString, "Unknown.png" ); // represents a catch-all for champions not yet included
         _champIcons.put(  "Annie", "res/champIcon/Annie.png");
         _champIcons.put(  "Olaf", "res/champIcon/Olaf.png" );
         _champIcons.put(  "Galio", "res/champIcon/Galio.png");
@@ -621,9 +623,15 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		if(arg1 instanceof Match)
 		{
 				Match matchSelected = (Match)arg1;
-				String champIconPath = _champIcons.get(matchSelected.getChampionPlayed());
+				int selectedChampId = matchSelected.getChampionId();
+				String championPlayed = LeagueChampion.getNameForChampion(selectedChampId);
+				if(championPlayed == null)
+				{
+					championPlayed = noneString;
+				}
+				String champIconPath = getChampIconByName(championPlayed);
 		
-				ImageIcon champIcon = new ImageIcon(champIconPath, matchSelected.getChampionPlayed());
+				ImageIcon champIcon = new ImageIcon(champIconPath, championPlayed);
 				champLabel.setIcon(champIcon);
 
 				Border iconOutline;
@@ -755,12 +763,12 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	
 	/**
 	 * Returns the string filename of a champion's icon if the {@code champName}
-	 * is the name of a League of Legends champion. Returns null if the champion 
+	 * is the name of a League of Legends champion. Returns the question mark icon if the champion 
 	 * {@code champName} is not in {@code _champIcons}.
 	 * @param champName A string champion name. The safest way to use this is to get
 	 * the name from the {@link LeagueChampion} class. 
 	 * @return The {@code String} relative path name of the champion icon for {@code champName} 
-	 * or {@code null} if the champion cannot be found in {@code _champIcons}.
+	 * or the question mark icon if the champion cannot be found in {@code _champIcons}.
 	 */
 	public static String getChampIconByName(String champName)
 	{
@@ -770,7 +778,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		}
 		else
 		{
-			return null;
+			return _champIcons.get(noneString);
 		}
 	}
 }

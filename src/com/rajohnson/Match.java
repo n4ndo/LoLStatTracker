@@ -2,7 +2,6 @@ package com.rajohnson;
 
 import java.util.ArrayList;
 import java.util.Date;
-import org.codehaus.jackson.annotate.*;
 
 import org.ektorp.support.CouchDbDocument;
 
@@ -23,15 +22,11 @@ public class Match extends CouchDbDocument{
 	private ArrayList<Integer> itemsBought;
 	private int trinket;
 	private Date datePlayed;
-	//private String _id;
-	//private String _rev;
-	
+
 	public Match() {
 		gameId = 0;
 		matchmakingQueue = "Custom";
 		championPlayed = "Urf";
-		//_id = "0";
-		//_rev = "1";
 		championId = 0;
 		win = -1;
 		numKills = 0;
@@ -263,30 +258,6 @@ public class Match extends CouchDbDocument{
 	{
 		datePlayed = matchDate;
 	}
-	
-	/*@JsonProperty("_id")
-	public String getDocId()
-	{
-		return _id;
-	}
-	
-	@JsonProperty("_id")
-	public void setDocId(String newId)
-	{
-		_id = newId;
-	}
-	
-	@JsonProperty("_rev")
-	public String getRevision()
-	{
-		return _rev;
-	}
-	
-	@JsonProperty("_rev")
-	public void setRevision(String newRev)
-	{
-		_rev = newRev;
-	}*/
 	
 	@Override
 	public String toString()

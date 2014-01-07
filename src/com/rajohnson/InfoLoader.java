@@ -161,9 +161,6 @@ public class InfoLoader {
 	 */
 	public boolean setClientVersion(String newClientVersion)
 	{
-		System.out.println("At least I got here...");
-		System.out.print("New client version: " + newClientVersion);
-		System.out.println(" here is the test.");
 		if(newClientVersion.matches("[0-9]\\.[0-9]{2}"))
 		{
 			System.out.println("The new client version is better!");
@@ -174,7 +171,7 @@ public class InfoLoader {
 		return false;
 	}
 	
-	public boolean writeInfoToResourceFile()
+	public boolean writeInfoToResourceFile(String resourceFileName)
 	{
 		ObjectMapper objMapper = new ObjectMapper();
 		ObjectNode infoObj = objMapper.createObjectNode();
@@ -191,14 +188,17 @@ public class InfoLoader {
 			i++;
 		}
 		
-		
-		
 		try {
-			objMapper.writeValue(new File("res/configItems/userConfig.json"),infoObj);
+			objMapper.writeValue(new File(resourceFileName),infoObj);
 		} catch (IOException e) {
 			
 			e.printStackTrace();
 		}
 		return true;
+	}
+	
+	public boolean writeInfoToResourceFile()
+	{
+		return writeInfoToResourceFile("res/configItems/userConfig.json");
 	}
 }

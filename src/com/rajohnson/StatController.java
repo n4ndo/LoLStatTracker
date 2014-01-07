@@ -115,6 +115,7 @@ public class StatController extends JFrame implements ActionListener{
 	 * Initializes the main display window. 
 	 */
 	private void initializeStatWindow() {
+		//System.out.println("Champion 400 is " + LeagueChampion.getNameForChampion(400));
 		setLayout(new GridBagLayout());
 		setTitle("LoL Stat Tracker");
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
