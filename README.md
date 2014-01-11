@@ -1,7 +1,7 @@
 # LoLStatTracker
 #### By Reed Johnson
 
-LoLStatTracker is a Java tool that allows players to track their individual performance in [League of Legends](http://www.leagueoflegends.com). It is built using the Java library [LeagueLib](http://github.com/achimala/leaguelib). 
+LoLStatTracker is a Java tool that allows players to track their individual performance in [League of Legends](http://www.leagueoflegends.com). It is built using the Java library [LeagueLib](http://github.com/achimala/leaguelib). The LoLStatTracker webpage can be found here: https://sites.google.com/site/lolstattracker/home.
 
 Players can:
 * See their recent match history for individual champions
