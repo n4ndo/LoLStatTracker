@@ -2,6 +2,10 @@ package com.rajohnson;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -20,24 +24,37 @@ public class InfoLoader {
 	private HashMap<String, LeagueServer> summonerServerMap;
 	private LeagueServer mainServer;
 	private String clientVersion;
+	private String configFileLocation;
 	
-	public InfoLoader() {
+	public InfoLoader() throws URISyntaxException {
 		 summonerList = new ArrayList<String>();
 		 mainSummoner = new String();
 		 loginId = "";
 		 summonerServerMap = new HashMap<String,LeagueServer>();
 		 mainServer = LeagueServer.NORTH_AMERICA;
 		 clientVersion = "1.00";
+
+		 String path = getClass().getProtectionDomain().getCodeSource().getLocation().toURI().toString();
+		 int indexOfColon = path.indexOf(':');
+		 String parentPath = "";
+		 if(path.endsWith("bin/"))
+		 {
+			 parentPath = (new File(path.substring(indexOfColon+1,path.length()))).getParentFile().getPath() + "/";
+		 } 
+		 //If the path doesn't end with bin/, then the runtime may not be development. The path will be taken from the normal install location (%USERPROFILE%\LoLStatTracker
+		 else
+		 {
+			 parentPath = System.getenv("USERPROFILE") + "/LoLStatTracker/";
+		 }
+		 configFileLocation = parentPath + "res/configItems/userConfig.json";
+
 	}
 	
 	public void addSummoner(String summonerName)
 	{
-		System.out.println("Summoner name: " + summonerName);
 		if(!summonerList.contains(summonerName))
 		{
-			System.out.println(summonerName + " is not in the list of summoners.");
 			summonerList.add(summonerName);
-			System.out.println(summonerList);
 		}
 	}
 	
@@ -112,14 +129,21 @@ public class InfoLoader {
 	public boolean loadInfoFromResourceFile()
 	{
 		ObjectMapper objMapper = new ObjectMapper();
-		File inFile = new File("res/configItems/userConfig.json");
-		if(!inFile.exists())
-		{
-			//The file doesn't exist. Create it with empty values. 
-			writeInfoToResourceFile();
-		}
+		//Get the location of the class files at runtime, backtrack a level to the root directory, 
+		//Then get the path to the resource directory. 
 		try {
-			JsonNode rootNode = objMapper.readTree(new File("res/configItems/userConfig.json"));
+			File inFile = new File(configFileLocation);
+		
+			if(!inFile.exists())
+			{
+				//The file doesn't exist. Create it with default empty values. 
+				writeInfoToResourceFile();
+			}
+		
+			//JsonNode rootNode = objMapper.readTree(new File("./res/configItems/userConfig.json"));
+			//Get the location of the class files at runtime, backtrack a level to the root directory, 
+			//Then get the path to the resource directory. 
+			JsonNode rootNode = objMapper.readTree(inFile);
 			loginId = rootNode.path("loginId").getTextValue();
 			mainSummoner = rootNode.path("mainSummoner").getTextValue();
 			mainServer = LeagueServer.findServerByCode(rootNode.path("mainServer").getTextValue());
@@ -137,13 +161,12 @@ public class InfoLoader {
 			
 			
 		} catch (JsonProcessingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
+			return false;
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-		
+			return false;
+		} 
 		return true;
 	}
 	
@@ -163,7 +186,6 @@ public class InfoLoader {
 	{
 		if(newClientVersion.matches("[0-9]\\.[0-9]{2}"))
 		{
-			System.out.println("The new client version is better!");
 			clientVersion = newClientVersion;
 			writeInfoToResourceFile();
 			return true;
@@ -189,7 +211,7 @@ public class InfoLoader {
 		}
 		
 		try {
-			objMapper.writeValue(new File(resourceFileName),infoObj);
+			objMapper.writeValue(new File(resourceFileName), infoObj);
 		} catch (IOException e) {
 			
 			e.printStackTrace();
@@ -199,6 +221,6 @@ public class InfoLoader {
 	
 	public boolean writeInfoToResourceFile()
 	{
-		return writeInfoToResourceFile("res/configItems/userConfig.json");
+		return writeInfoToResourceFile(configFileLocation);
 	}
 }

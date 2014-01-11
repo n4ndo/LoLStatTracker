@@ -4,14 +4,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.Vector;
 
 import org.codehaus.jackson.JsonProcessingException;
@@ -24,8 +23,6 @@ import org.ektorp.ViewResult.Row;
 
 import org.ektorp.support.CouchDbRepositorySupport;
 
-import com.achimala.leaguelib.connection.LeagueServer;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -38,7 +35,7 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
 	private boolean initialized = false;
 	private static SimpleDateFormat dbDateFormat;
 	private final String matchDocumentId = "_design/Match";
-	private final String matchDocumentLocation = "res/configItems/match.json";
+	private String matchDocumentLocation;
 	
 	//All matches should use the exact same date format, so only one date format needs to be created.
 	static
@@ -46,11 +43,25 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
 		dbDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'.'SSSZ");
 	}
 	
-	public MatchRepository(CouchDbConnector connector, String summonerName)
+	public MatchRepository(CouchDbConnector connector, String summonerName) throws URISyntaxException
 	{
 		super(Match.class, connector);
 		m_SummonerName = summonerName;
 		initialized = true;
+		String path = getClass().getProtectionDomain().getCodeSource().getLocation().toURI().toString();
+		 int indexOfColon = path.indexOf(':');
+		 String parentPath = "";
+		 
+		 if(path.endsWith("bin/"))
+		 {
+			 parentPath = (new File(path.substring(indexOfColon+1,path.length()))).getParentFile().getPath() + "/";
+		 } 
+		 //If the path doesn't end with bin/, then the runtime may not be development. The path will be taken from the normal install location (%USERPROFILE%\LoLStatTracker
+		 else
+		 {
+			 parentPath = System.getenv("USERPROFILE") + "/LoLStatTracker/";
+		 }
+		 matchDocumentLocation = parentPath + "res/configItems/match.json";
 	}
 	
 	/**
@@ -310,7 +321,8 @@ public class MatchRepository extends CouchDbRepositorySupport<Match>{
     		}
     	}
     	ObjectMapper objMapper = new ObjectMapper();
-    	JsonNode rootNode = objMapper.readTree(new File("res/configItems/match.json"));
+    	System.out.println(matchDocumentLocation);
+    	JsonNode rootNode = objMapper.readTree(new File(matchDocumentLocation));
 		String id = rootNode.get("_id").textValue();
 		Iterator<String> fieldIterator = rootNode.fieldNames();
 		while(fieldIterator.hasNext())

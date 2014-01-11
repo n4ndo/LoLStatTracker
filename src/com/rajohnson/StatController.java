@@ -24,11 +24,12 @@ import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.text.DecimalFormat;
-import java.text.ParsePosition;
-import java.text.SimpleDateFormat;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -40,15 +41,15 @@ import java.util.StringTokenizer;
 import java.util.TreeSet;
 import java.util.Vector;
 
-import javax.swing.AbstractButton;
+
 import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
+
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
-import javax.swing.JComponent;
+
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -62,7 +63,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
-import javax.swing.ListModel;
+
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
 import javax.swing.border.EtchedBorder;
@@ -108,13 +109,21 @@ public class StatController extends JFrame implements ActionListener{
 	 */
 	public StatController()
 	{
-		initializeStatWindow();	
+		try {
+			initializeStatWindow();
+		} catch (URISyntaxException e) {
+			System.err.println("An issue occured with loading the userConfig.json file in the info loader.");
+			System.err.println("LoLStatTracker is now exiting.");
+			e.printStackTrace();
+			System.exit(1);
+		}	
 	}
 
 	/**
 	 * Initializes the main display window. 
+	 * @throws URISyntaxException 
 	 */
-	private void initializeStatWindow() {
+	private void initializeStatWindow() throws URISyntaxException {
 		//System.out.println("Champion 400 is " + LeagueChampion.getNameForChampion(400));
 		setLayout(new GridBagLayout());
 		setTitle("LoL Stat Tracker");
@@ -136,6 +145,7 @@ public class StatController extends JFrame implements ActionListener{
 		//Load info from the config file. 
 		
 		mainWindow = new JTabbedPane(JTabbedPane.LEFT);
+		mainWindow.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 		currentSummoner = new String();
 		if(info.getMainSummoner().length() < 1)
 		{
@@ -217,6 +227,8 @@ public class StatController extends JFrame implements ActionListener{
 		champPerformancePane.setPreferredSize(new Dimension(760,700));
 		championPerformancePanel.add(champPerformancePane);
 		
+		initializePasswordDialog();
+		
 		//championPerformancePanel.add(champPerformancePane);
 		JButton updateButton = new JButton("Update History");
 		updateButton.setActionCommand("update");
@@ -275,16 +287,13 @@ public class StatController extends JFrame implements ActionListener{
 		if(e.getActionCommand().equals("update"))
 		{
 			//Initialize and display the login dialog for updating the stats.
-			initializePasswordDialog();
-			loginDialog.pack();
-			loginDialog.setLocationRelativeTo(null);
-			loginDialog.setVisible(true);
+			displayPasswordDialog();
 		}
 		// Log on and update the recent matches.
 		else if(e.getActionCommand().equals("logon"))
 		{
 			logonAndUpdate();
-			loginDialog.setVisible(false);
+			//loginDialog.setVisible(false);
 		}
 		//Add a new summoner to list of summoners
 		else if(e.getActionCommand().equals("addSummonerButton"))
@@ -306,7 +315,12 @@ public class StatController extends JFrame implements ActionListener{
 					
 				}
 				// Clear the tabs.
-				changeCurrentSummonerAndUpdateDisplay(summonerName);
+				try {
+					changeCurrentSummonerAndUpdateDisplay(summonerName);
+				} catch (URISyntaxException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 				
 				addSummonerDialog.setVisible(false);
 				info.writeInfoToResourceFile();
@@ -339,7 +353,12 @@ public class StatController extends JFrame implements ActionListener{
 			else if(firstToken.equalsIgnoreCase("change"))
 			{
 				String summonerName = strtok.nextToken();
-				changeCurrentSummonerAndUpdateDisplay(summonerName);
+				try {
+					changeCurrentSummonerAndUpdateDisplay(summonerName);
+				} catch (URISyntaxException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 			}
 			//Changes the default summoner that is loaded on startup
 			else if(firstToken.equalsIgnoreCase("main"))
@@ -348,7 +367,7 @@ public class StatController extends JFrame implements ActionListener{
 				changeMainSummonerAndUpdateDisplay(summonerName);
 			}
 		}
-		else if(MatchCellRenderer.getChampIconByName(e.getActionCommand()) != null)
+		else if(MatchCellRenderer.getChampionIconMap().containsKey(e.getActionCommand()))
 		{
 			if((mr != null) && mr.isRepoConnected())
 			{
@@ -416,8 +435,9 @@ public class StatController extends JFrame implements ActionListener{
 	 * Changes the currently displayed summoner, clears all open champion tabs, updates the menus to make the new current summoner
 	 * be unselectable when appropriate, and updates the title. 
 	 * @param summonerName The summoner to display.
+	 * @throws URISyntaxException 
 	 */
-	private void changeCurrentSummonerAndUpdateDisplay(String summonerName) {
+	private void changeCurrentSummonerAndUpdateDisplay(String summonerName) throws URISyntaxException {
 		removeChampStatPanels();
 
 		currentSummoner = summonerName;
@@ -598,8 +618,9 @@ public class StatController extends JFrame implements ActionListener{
 	/**
 	 * Initializes the {@link MatchRepository} mr to be linked the database associated with the summoner {@code summonerName} 
 	 * @param summonerName A summoner's name to connect to an existing database or create a new one. 
+	 * @throws URISyntaxException 
 	 */
-	private void initializeMatchRepositoryForSummoner(String summonerName)
+	private void initializeMatchRepositoryForSummoner(String summonerName) throws URISyntaxException
 	{
 		HttpClient httpClient = new StdHttpClient.Builder().build();
 		CouchDbInstance dbInstance = new StdCouchDbInstance(httpClient);
@@ -669,7 +690,9 @@ public class StatController extends JFrame implements ActionListener{
 			c.gridy = rowNumberX;
 			JPanel champPanel = new JPanel();
 			champPanel.setLayout(new GridLayout(2,1));
-			ImageIcon champIcon = new ImageIcon(MatchCellRenderer.getChampIconByName(champ));
+			
+			String parentPath = getStatTrackerDirectoryLocation();
+			ImageIcon champIcon = new ImageIcon(parentPath + MatchCellRenderer.getChampIconByName(champ));
 			JButton champButton = new JButton(champIcon);
 			champButton.addActionListener(this);
 			champButton.setActionCommand(champ);
@@ -677,10 +700,12 @@ public class StatController extends JFrame implements ActionListener{
 			champName.setOpaque(false);
 			
 			champPanel.add(champButton);
+			
 			champPanel.add(champName);
 			champPanel.setPreferredSize(new Dimension(90,100));
 			champPanel.setOpaque(false);
 			championIconPanel.add(champPanel,c);
+		
 			columnNum = (columnNum + 1) % 6;
 			if(columnNum == 0)
 			{
@@ -689,7 +714,38 @@ public class StatController extends JFrame implements ActionListener{
 		}
 		return championIconPanel;
 	}
-	
+
+	/**
+	 * Determines the absolute path to the directory where the LoLStatTracker JAr resides for the purpose of accessing resource files.
+	 * @return
+	 */
+	private String getStatTrackerDirectoryLocation() {
+		try{
+			String path;
+			path = getClass().getProtectionDomain().getCodeSource().getLocation().toURI().toString();
+
+			int indexOfColon = path.indexOf(':');
+			String parentPath = "";
+
+			if(path.endsWith("bin/"))
+			{
+				parentPath = (new File(path.substring(indexOfColon+1,path.length()))).getParentFile().getPath() + "/";
+			} 
+			//If the path doesn't end with bin/, then the runtime may not be development. The path will be taken from the normal install location (%USERPROFILE%\LoLStatTracker
+			else
+			{
+				parentPath = System.getenv("USERPROFILE") + "/LoLStatTracker/";
+			}
+			return parentPath;
+		}
+		//TODO: If a URISyntaxException occurs then we will need to stop the resource from loading somehow.
+		catch(URISyntaxException e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
+
 	/**
 	 * Connects to the League of Legends server using the username and password from the JTextField and JPassword field respectively
 	 * in the logon dialog. If the client version is out of date the user is prompted to update it. 
@@ -727,10 +783,7 @@ public class StatController extends JFrame implements ActionListener{
 				{
 					String outputDialogString = "Either your username, password, or server was incorrect. Please try again.";
 					JOptionPane.showMessageDialog(null, outputDialogString, "Invalid Username or Password", JOptionPane.WARNING_MESSAGE);
-					initializePasswordDialog();
-					loginDialog.pack();
-					loginDialog.setLocationRelativeTo(null);
-					loginDialog.setVisible(true);
+					//displayPasswordDialog();
 				}
 			}
 			else if(e1.getErrorCode() == LeagueErrorCode.AUTHENTICATION_ERROR)
@@ -742,13 +795,13 @@ public class StatController extends JFrame implements ActionListener{
 		}
 		
 		//Connect 
+
 		Map<LeagueAccount, LeagueException> exceptions = c.getAccountQueue().connectAll();
         if(exceptions != null) {
             for(LeagueAccount account : exceptions.keySet())
                 System.out.println(account + " error: " + exceptions.get(account));
             return;
         }
-        
         //Get summoner info by summoner name, get recent matches and write them to the database. 
         LeagueSummoner testSummoner;
         String summonerName = currentSummoner;
@@ -756,23 +809,24 @@ public class StatController extends JFrame implements ActionListener{
 			testSummoner = c.getSummonerService().getSummonerByName(summonerName);
 			c.getPlayerStatsService().fillMatchHistory(testSummoner);
 	        ArrayList<MatchHistoryEntry> recentMatches = (ArrayList<MatchHistoryEntry>) testSummoner.getMatchHistory();
+
 	        initializeMatchRepositoryForSummoner(summonerName);
-         	
+
 	        ArrayList<Match> mostRecentMatches = getMatchesToWrite(recentMatches, testSummoner);
-	        
 	        //Add the new matches to the display.
-	        ArrayList<Match> matchesToAddToDisplay = (ArrayList<Match>)mr.getMatchesNotInDatabase(mostRecentMatches); 
+	        ArrayList<Match> matchesToAddToDisplay = (ArrayList<Match>)mr.getMatchesNotInDatabase(mostRecentMatches);
 	        for(Match m : matchesToAddToDisplay)
 	        {
 	        	 matchListModel.add(0,m);
 	        }
 	        mr.addNewMatches(mostRecentMatches);
 
-	        
 		} catch (LeagueException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		}
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+		} 
+		loginDialog.setVisible(false);
 	}	
 	
 	/**
@@ -840,7 +894,9 @@ public class StatController extends JFrame implements ActionListener{
 		JLabel loginLabel = new JLabel("Username:");
 		JLabel passwordLabel = new JLabel("Password:");
 		usernameField = new JTextField();
+		//usernameField.setText("");
 		passwordField = new JPasswordField();
+		//passwordField.setText("");
 		loginDialogPanel.add(loginLabel, c);
 		
 		c.insets = new Insets(5,0,5,0);
@@ -876,6 +932,17 @@ public class StatController extends JFrame implements ActionListener{
 		
 		loginDialog.add(loginDialogPanel);
 		loginDialog.setPreferredSize(new Dimension(264,221));
+		loginDialog.pack();
+	}
+	
+	private void displayPasswordDialog()
+	{
+		usernameField.setText("");
+		passwordField.setText("");
+		
+		loginDialog.pack();
+		loginDialog.setLocationRelativeTo(null);
+		loginDialog.setVisible(true);
 	}
 	
 	/**
@@ -984,7 +1051,8 @@ public class StatController extends JFrame implements ActionListener{
 		Collections.reverse(matchesForChamp);
 		
 		//Create the champ icon
-		ImageIcon champIcon = new ImageIcon(MatchCellRenderer.getChampIconByName(championName));
+		
+		ImageIcon champIcon = new ImageIcon(getStatTrackerDirectoryLocation() + MatchCellRenderer.getChampIconByName(championName));
 		GridBagConstraints c = new GridBagConstraints();
 		c.gridx=0;
 		c.gridy=0;
@@ -1263,7 +1331,12 @@ public class StatController extends JFrame implements ActionListener{
 			// If the summoner removed was the current summoner, update the display.
 			if(summonerName.equalsIgnoreCase(currentSummoner))
 			{
-				changeCurrentSummonerAndUpdateDisplay(info.getMainSummoner());
+				try {
+					changeCurrentSummonerAndUpdateDisplay(info.getMainSummoner());
+				} catch (URISyntaxException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			updateChangeAndRemoveSummonerMenu();
 		}
@@ -1519,7 +1592,7 @@ public class StatController extends JFrame implements ActionListener{
 			}
 			
 			int tabIndex = mainWindow.indexOfTab(m_ChampName);
-			JPanel champPerfPanel = (JPanel)mainWindow.getComponent(tabIndex);
+			JPanel champPerfPanel = (JPanel)mainWindow.getComponent(tabIndex+1);
 			int componentCount = champPerfPanel.getComponentCount();
 			ArrayList<Match> updatedMatchList = null;
 			if(matchesToShow.size() <= startSize)

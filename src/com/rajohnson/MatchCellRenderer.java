@@ -10,6 +10,9 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +37,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 
 	private static HashMap<String, String> _champIcons;
 	private static HashMap<Integer, String> _itemIcons;
-	private static final String noneString = "none";
+	public static final String NONE_STRING = "none";
 	
 	public static enum CellSize
 	{
@@ -42,7 +45,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	}
 	static {
         _champIcons = new HashMap<String,String>();
-        _champIcons.put(  noneString, "Unknown.png" ); // represents a catch-all for champions not yet included
+        _champIcons.put(  NONE_STRING, "res/champIcon/Unknown.png" ); // represents a catch-all for champions not yet included
         _champIcons.put(  "Annie", "res/champIcon/Annie.png");
         _champIcons.put(  "Olaf", "res/champIcon/Olaf.png" );
         _champIcons.put(  "Galio", "res/champIcon/Galio.png");
@@ -424,7 +427,6 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 			fontSize = 10;
 				
 		}
-		
 		GridBagConstraints constraint = new GridBagConstraints();
 		constraint.gridx = 0;
 		constraint.gridy = 0;
@@ -627,46 +629,56 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 				String championPlayed = LeagueChampion.getNameForChampion(selectedChampId);
 				if(championPlayed == null)
 				{
-					championPlayed = noneString;
+					championPlayed = NONE_STRING;
 				}
-				String champIconPath = getChampIconByName(championPlayed);
-		
-				ImageIcon champIcon = new ImageIcon(champIconPath, championPlayed);
-				champLabel.setIcon(champIcon);
-
-				Border iconOutline;
-				if(matchSelected.getWin() == 1)
-				{
-					iconOutline = BorderFactory.createLineBorder(Color.GREEN);
-					champLabel.setBorder(iconOutline);
-				}
-				else if(matchSelected.getWin() == 0)
-				{
-					iconOutline = BorderFactory.createLineBorder(Color.RED);
-					champLabel.setBorder(iconOutline);
-				}
-				infoPanel.setOpaque(false);
 				
-				int i = 0;
-				ArrayList<Integer> itemsBought = matchSelected.getItemsBought();
+				try {
+					//Get the location of the class files at runtime, backtrack a level to the root directory, 
+					//Then get the path to the resource directory. 
+					String parentPath = getStatTrackerDirectory();
+					String champIconPath = getChampIconByName(championPlayed);
+					String absoluteChampIconPath = parentPath + champIconPath;
+					ImageIcon champIcon = new ImageIcon(absoluteChampIconPath, championPlayed);
+					champLabel.setIcon(champIcon);
 
-				for(JLabel itemLabel : itemLabels)
-				{
-
-					String itemPath = getItemIconById(itemsBought.get(i));
-					if(itemPath != null)
+					Border iconOutline;
+					if(matchSelected.getWin() == 1)
 					{
-						ImageIcon itemIcon = new ImageIcon(itemPath); 
-						itemLabel.setIcon(itemIcon);
+						iconOutline = BorderFactory.createLineBorder(Color.GREEN);
+						champLabel.setBorder(iconOutline);
 					}
-					i++;
+					else if(matchSelected.getWin() == 0)
+					{
+						iconOutline = BorderFactory.createLineBorder(Color.RED);
+						champLabel.setBorder(iconOutline);
+					}
+					infoPanel.setOpaque(false);
+					
+					int i = 0;
+					ArrayList<Integer> itemsBought = matchSelected.getItemsBought();
+					
+					for(JLabel itemLabel : itemLabels)
+					{
+
+						String itemPath = getItemIconById(itemsBought.get(i));
+						String absoluteItemPath = parentPath + itemPath;
+						if(itemPath != null)
+						{
+							ImageIcon itemIcon = new ImageIcon(absoluteItemPath); 
+							itemLabel.setIcon(itemIcon);
+						}
+						i++;
+					}
+					String trinketPath = getItemIconById(matchSelected.getTrinket());
+					if(trinketPath != null)
+					{
+						ImageIcon trinketIcon = new ImageIcon(parentPath + trinketPath);
+						trinketLabel.setIcon(trinketIcon);
+					}
+				} catch (URISyntaxException e) {
+					e.printStackTrace();
 				}
-				String trinketPath = getItemIconById(matchSelected.getTrinket());
-				if(trinketPath != null)
-				{
-					ImageIcon trinketIcon = new ImageIcon(trinketPath);
-					trinketLabel.setIcon(trinketIcon);
-				}
+				
 				
 				
 				killCount.setText(Integer.toString(matchSelected.getNumKills()));
@@ -680,6 +692,23 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		}
 		
 		return this;
+	}
+
+	private String getStatTrackerDirectory() throws URISyntaxException {
+		String path = getClass().getProtectionDomain().getCodeSource().getLocation().toURI().toString();
+		 int indexOfColon = path.indexOf(':');
+		 String parentPath = "";
+		 
+		 if(path.endsWith("bin/"))
+		 {
+			 parentPath = (new File(path.substring(indexOfColon+1,path.length()))).getParentFile().getPath() + "/";
+		 } 
+		 //If the path doesn't end with bin/, then the runtime may not be development. The path will be taken from the normal install location (%USERPROFILE%\LoLStatTracker
+		 else
+		 {
+			 parentPath = System.getenv("USERPROFILE") + "/LoLStatTracker/";
+		 }
+		return parentPath;
 	}
 	
 	/**
@@ -772,13 +801,14 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	 */
 	public static String getChampIconByName(String champName)
 	{
+		
 		if(_champIcons.containsKey(champName))
 		{
 			return _champIcons.get(champName);
 		}
 		else
 		{
-			return _champIcons.get(noneString);
+			return _champIcons.get(NONE_STRING);
 		}
 	}
 }
