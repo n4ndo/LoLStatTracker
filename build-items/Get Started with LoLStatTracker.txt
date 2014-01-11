@@ -1,0 +1,17 @@
+How to get started with LoLStatTracker:
+1. Double click 'SetupLoLStatTracker.bat'. 
+2. You will be asked if you want to allow a file starting with setup-couchdb to make changes to your computer
+	-If you already have CouchDB installed (possible, but unlikely), then click no. Set up is done!
+	-If you do NOT already have CouchDB installed (if you're unsure, you most likely don't have it), then click yes.
+	 Make sure the box for 'Run as a windows service' is checked. It should be selected automatically,
+	 but double check as this setting is required for LoLStatTracker to work properly.
+3. Double click 'LoLStatTrackerStart.bat' to begin. 
+4. When prompted, enter your summoner name (your name in League of Legends)
+5. Click the 'Update History' button at the bottom of the screen.
+6. **IMPORTANT NOTE** This step WILL log you out if you are logged into the League of Legends client.
+   Enter the information you use to log in to League of Legends, including selecting
+   your server from the drop down menu. This information is used immediately and not saved locally.
+  
+7. Congratulations! You can now see your 10 most recent matches! When you play more games,
+   load up LoLStatTracker again and use the Update History button. For more information
+   on LoLStatTracker visit https://sites.google.com/site/lolstattracker/home

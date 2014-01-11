@@ -1,92 +1,160 @@
+<?xml version="1.0"?>
 <!--
-    This file is part of LeagueLib.
-    LeagueLib is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    LeagueLib is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with LeagueLib.  If not, see <http://www.gnu.org/licenses/>.
+    This is the build for LoLStatTracker. More information to come soon.
+    
 -->
 
 
-<project name="leaguelib" basedir="." default="run-test">
-    <property name="src.dir" value="src" />
-    <property name="build.dir" value="build" />
-    <property name="lib.dir" value="lib" />
-    <property name="classes.dir" value="${build.dir}/classes" />
-    <property name="jar.dir" value="${build.dir}/jar" />
-    <property name="package-prefix" value="com.achimala.leaguelib" />
-    
-    <!-- <path id="external.jars">
-        <fileset dir="${lib.dir}" includes="**/*.jar" />
-    </path> -->
-    
-    <path id="project.classpath">
-        <!-- <pathelement location="${src.dir}" /> -->
-        <!-- <path refid="external.jars" /> -->
-        <fileset dir="${lib.dir}">
-            <include name="*.jar" />
-        </fileset>
-    </path>
-    
-    <pathconvert property="mf.classpath" pathsep=" ">
-        <path refid="project.classpath" />
-        <mapper>
-            <chainedmapper>
-                <flattenmapper />
-                <globmapper from="*.jar" to="lib/*.jar" />
-            </chainedmapper>
-        </mapper>
-    </pathconvert>
-    
-    <path id="jars">
-        <fileset dir="${lib.dir}" includes="**/*.jar" />
-    </path>
-    
-    <target name="clean">
-        <delete dir="build" />
-    </target>
 
-    <target name="compile">
-        <mkdir dir="${classes.dir}" />
-        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false" classpathref="jars" debug="on">
-            <compilerarg value="-Xlint:unchecked" />
-        </javac>
-    </target>
-
-    <target name="jar" depends="compile">
-        <mkdir dir="${jar.dir}" />
-        <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
-            <!-- <manifest>
-                <attribute name="Main-Class" value="${package-prefix}.tests.MainTest" />
-            </manifest> -->
-            <zipgroupfileset dir="${lib.dir}" includes="**/*.jar" />
-        </jar>
-    </target>
-
-    <target name="run-test" depends="jar">
-        <java classname="${package-prefix}.tests.MainTest">
-            <classpath>
-                <pathelement location="${jar.dir}/${ant.project.name}.jar" />
-            </classpath>
-            <arg value="${test.password}" />
-        </java>
-    </target>
-    
-    <target name="run-test-console" depends="jar">
-        <java classname="${package-prefix}.tests.TestConsole">
-            <classpath>
-                <pathelement location="${jar.dir}/${ant.project.name}.jar" />
-            </classpath>
-        </java>
-    </target>
-
-    <target name="clean-build" depends="clean, jar" />
-    <target name="test" depends="clean, run-test" />
+<project name="LoLStatTracker" default="local" basedir=".">
+	<property name="src.dir" value="src"/>
+	<property name="res.dir" value="res"/>
+	<property name="lib.dir" value="lib"/>
+	<property name="base.build.dir" value="bin"/>
+	<property name="build.dir" value="${base.build.dir}/com"/>
+	<property name="base.name" value="LoLStatTracker"/>
+	<property name="rajohnson.dir" value="${build.dir}/rajohnson"/>
+	<property name="gvaneyck.dir" value="${build.dir}/gvaneyck"/>
+	<property name="achimala.dir" value="${build.dir}/achimala"/>
+	<property name="leaguelib.dir" value="${achimala.dir}/leaguelib"/>
+	<property name="deploy.dir" value="deploy"/>
+	<property name="config.item.dir" value="configItems"/>
+	<property name="entry.point.file" value="com.rajohnson.StatController"/>
+	
+	<!--Distribution build related properties-->
+	<property name="build.items.dir" value="build-items"/>
+	<property name="windows.distro.dir" value="windows-distro"/>
+	<property name="startup.windows.batch" value="LoLStatTrackerStart.bat"/>
+	<property name="setup.windows.batch" value="SetupLoLStatTracker.bat"/>
+	<property name="CouchDB.windows.exe" value="setup-couchdb-1.5.0_R14B04.exe"/>
+	<property name="get.started.doc" value="Get Started with LoLStatTracker.txt"/>
+	<property name="db.included.distro" value="${base.name}"/>
+	<!--End distribution build related properties-->
+	
+	<!-- True if the windows distribution directory exists. False otherwise-->
+	<condition property="windows.distro.dir.exists">
+		<available file="${deploy.dir}/${windows.distro.dir}" type="dir"/>
+	</condition>
+	
+	<!--The class path for the entire LoLStatTracker project.-->
+	<path id="master-classpath">
+		<fileset dir="${lib.dir}/">
+			<include name="*.jar"/>
+		</fileset>
+		<pathelement path="${rajohnson.dir}"/>
+		<pathelement path="${gvaneyck.dir}/rtmp"/>
+		<pathelement path="${achimala.dir}/util"/>
+		<pathelement path="${leaguelib.dir}/connection"/>
+		<pathelement path="${leaguelib.dir}/errors"/>
+		<pathelement path="${leaguelib.dir}/models"/>
+		<pathelement path="${leaguelib.dir}/services"/>
+		<pathelement path="${leaguelib.dir}/tests"/>
+	</path>
+	
+	<target name="local" description="Place holder until I get something running">
+		<echo>This should be a secret to everybody.</echo>
+	</target>
+	
+	
+	<manifestclasspath property="jar.classpath"
+		               jarfile="${deploy.dir}/${base.name}.jar">
+		<classpath refid="master-classpath"/>
+	</manifestclasspath>
+	
+	<!--Creates the setup zip file used to distribute LoLStatTracker to windows systems.-->
+	<target name="build-setup-zip" depends="build-jar,clean-windows-distro,create-windows-distro-folder">
+		<echo>Building the setup zip file for windows environments.</echo>
+		
+		<echo>Moving required files...</echo>
+		<copy file="${build.items.dir}/${startup.windows.batch}" todir="${deploy.dir}/${windows.distro.dir}/${db.included.distro}"/>
+		<copy file="${build.items.dir}/${setup.windows.batch}" todir="${deploy.dir}/${windows.distro.dir}/${db.included.distro}"/>
+		<copy todir="${deploy.dir}/${windows.distro.dir}/${db.included.distro}/${res.dir}">
+			<fileset dir="${res.dir}">
+				<exclude name="**/userConfig.json"/>
+			</fileset>
+		</copy>
+		<!--<touch file="${deploy.dir}/${windows.distro.dir}/${db.included.distro}/${res.dir}/${config.item.dir}/userConfig.json"/>-->
+		<copy file="${deploy.dir}/${base.name}.jar" todir="${deploy.dir}/${windows.distro.dir}/${db.included.distro}"/>
+		<copy file="${build.items.dir}/${CouchDB.windows.exe}" todir="${deploy.dir}/${windows.distro.dir}/${db.included.distro}"/>
+		<copy file="${build.items.dir}/${get.started.doc}" todir="${deploy.dir}/${windows.distro.dir}/${db.included.distro}"/>
+		<echo>Required files moved!</echo>
+		
+		<echo>Zipping files into final distributable zip...</echo>
+		<zip destfile="${deploy.dir}/${base.name}_windows_setup.zip"
+			basedir="${deploy.dir}/${windows.distro.dir}"/>
+		
+		<echo>Setup file has been built!</echo>
+	</target>
+	
+	<!--Cleans the windows distribution folder before creating the zip to make sure everything is up to date.-->
+	<target name="clean-windows-distro">
+		<echo>Cleaning the windows distribution folder</echo>
+		<delete dir="${deploy.dir}/${windows.distro.dir}"/>
+			<!--<fileset dir="${deploy.dir}/${windows.distro.dir}"/>
+		</delete>-->
+	</target>
+	
+	<!--Creates the windows distro folder if it doesn't exist-->
+	<target name="create-windows-distro-folder" unless="${windows.distro.dir.exists}">
+		<echo>Windows distribution folder does not exist. Creating then continuing with execution</echo>
+		<mkdir dir="${deploy.dir}/${windows.distro.dir}"/>
+	</target>
+	
+	<!--The target that builds the jar from the compiled project
+	Depends on the project being compiled already.
+	-->
+	<target name="build-jar" depends="compile">
+		<echo>Building default jar file and placing it into ${deploy.dir}</echo>
+		<mkdir dir="${deploy.dir}"/>
+		<jar destfile="${deploy.dir}/${base.name}.jar"
+			 basedir="${base.build.dir}">
+			 <manifest>
+					<attribute name="Main-Class" value="org.eclipse.jdt.internal.jarinjarloader.JarRsrcLoader"/>
+			        <attribute name="Rsrc-Main-Class" value="${entry.point.file}"/>
+			        <attribute name="Class-Path" value="."/>
+			        <attribute name="Rsrc-Class-Path" value="./ gson-2.2.2.jar commons-codec-1.6.jar 
+			                	commons-io-2.4.jar commons-logging-1.1.3.jar 
+			                	fluent-hc-4.3.1.jar httpclient-4.3.1.jar httpclient-cache-4.3.1.jar httpcore-4.3.jar httpmime-4.3.1.jar 
+			                	jackson-annotations-2.2.3.jar jackson-core-2.2.1.jar 
+			                	jackson-core-asl-1.9.13.jar jackson-databind-2.2.3.jar 
+			                	jackson-mapper-asl-1.9.13.jar org.ektorp-1.4.0.jar org.ektorp-1.4.0-sources.jar slf4j-api-1.7.5.jar"/>
+		    </manifest>
+			<zipfileset src="jar-in-jar-loader.zip"/>
+			<zipfileset dir="${lib.dir}" includes="gson-2.2.2.jar"/>
+			<zipfileset dir="${lib.dir}" includes="commons-codec-1.6.jar"/>
+			<zipfileset dir="${lib.dir}" includes="commons-io-2.4.jar"/>
+			<zipfileset dir="${lib.dir}" includes="commons-logging-1.1.3.jar"/>
+			<zipfileset dir="${lib.dir}" includes="fluent-hc-4.3.1.jar"/>
+			<zipfileset dir="${lib.dir}" includes="httpclient-4.3.1.jar"/>
+			<zipfileset dir="${lib.dir}" includes="httpclient-cache-4.3.1.jar"/>
+			<zipfileset dir="${lib.dir}" includes="httpcore-4.3.jar"/>
+			<zipfileset dir="${lib.dir}" includes="httpmime-4.3.1.jar"/>
+			<zipfileset dir="${lib.dir}" includes="jackson-annotations-2.2.3.jar"/>
+			<zipfileset dir="${lib.dir}" includes="jackson-core-2.2.1.jar"/>
+			<zipfileset dir="${lib.dir}" includes="jackson-core-asl-1.9.13.jar"/>
+			<zipfileset dir="${lib.dir}" includes="jackson-databind-2.2.3.jar"/>
+			<zipfileset dir="${lib.dir}" includes="jackson-mapper-asl-1.9.13.jar"/>
+			<zipfileset dir="${lib.dir}" includes="org.ektorp-1.4.0.jar"/>
+			<zipfileset dir="${lib.dir}" includes="org.ektorp-1.4.0-sources.jar"/>
+			<zipfileset dir="${lib.dir}" includes="slf4j-api-1.7.5.jar"/>
+		</jar>
+	</target>
+	
+	<target name="compile">
+		<echo>Local version being compiled...</echo>
+		<mkdir dir="${base.build.dir}"/>
+		<javac destdir="${base.build.dir}" source="1.7" target="1.7">
+			<src path="${src.dir}"/>
+			<classpath refid="master-classpath"/>
+		</javac>
+	</target>
+	
+	<target name="clean" description="Clean output directories of class files.">
+		<delete>
+			<fileset dir="${base.build.dir}">
+				<include name="**/*.class"/>
+			</fileset>
+		</delete>
+	</target>
+	
 </project>
