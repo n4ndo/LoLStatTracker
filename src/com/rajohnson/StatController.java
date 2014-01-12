@@ -121,7 +121,8 @@ public class StatController extends JFrame implements ActionListener{
 
 	/**
 	 * Initializes the main display window. 
-	 * @throws URISyntaxException 
+	 * @throws URISyntaxException Thrown when attempting to get the directory of the LoLStatTracker JAR at runtime if there is some issue with the syntax
+	 * of the URI generated. 
 	 */
 	private void initializeStatWindow() throws URISyntaxException {
 		//System.out.println("Champion 400 is " + LeagueChampion.getNameForChampion(400));
@@ -287,7 +288,7 @@ public class StatController extends JFrame implements ActionListener{
 		if(e.getActionCommand().equals("update"))
 		{
 			//Initialize and display the login dialog for updating the stats.
-			displayPasswordDialog();
+			displayLoginDialog();
 		}
 		// Log on and update the recent matches.
 		else if(e.getActionCommand().equals("logon"))
@@ -435,7 +436,8 @@ public class StatController extends JFrame implements ActionListener{
 	 * Changes the currently displayed summoner, clears all open champion tabs, updates the menus to make the new current summoner
 	 * be unselectable when appropriate, and updates the title. 
 	 * @param summonerName The summoner to display.
-	 * @throws URISyntaxException 
+	 * @throws URISyntaxException Thrown when attempting to get the directory of the LoLStatTracker JAR at runtime if there is some issue with the syntax
+	 * of the URI generated. 
 	 */
 	private void changeCurrentSummonerAndUpdateDisplay(String summonerName) throws URISyntaxException {
 		removeChampStatPanels();
@@ -716,8 +718,8 @@ public class StatController extends JFrame implements ActionListener{
 	}
 
 	/**
-	 * Determines the absolute path to the directory where the LoLStatTracker JAr resides for the purpose of accessing resource files.
-	 * @return
+	 * Determines the absolute path to the directory where the LoLStatTracker JAR resides for the purpose of accessing resource files.
+	 * @return The absolute path to the location of the resources at runtime.
 	 */
 	private String getStatTrackerDirectoryLocation() {
 		try{
@@ -935,7 +937,11 @@ public class StatController extends JFrame implements ActionListener{
 		loginDialog.pack();
 	}
 	
-	private void displayPasswordDialog()
+	/**
+	 * Sets the login dialog to be visible in the middle of the screen and clears 
+	 * the username and password fields so they are empty.
+	 */
+	private void displayLoginDialog()
 	{
 		usernameField.setText("");
 		passwordField.setText("");
@@ -993,6 +999,11 @@ public class StatController extends JFrame implements ActionListener{
 	}
 	
 	
+	/**
+	 * Creates a closeable tab that has champion specific performance information. 
+	 * @param championName The name of the champion whose data should be used to generate the tab.
+	 * @return The closeable {@code JPanel} which has a summoner's champion-specific performance.
+	 */
 	private JPanel createCloseableChampPerfTab(String championName)
 	{
 		JPanel champPerformancePanel = new JPanel(){
@@ -1156,6 +1167,10 @@ public class StatController extends JFrame implements ActionListener{
 		return champPerformancePanel;
 	}
 	
+	/**
+	 * Reloads all the recently played matches for a summoner from the {@code MatchRepository} and adds them to the {@code matchListModel} which automatically
+	 * updates the scroll view in the Recent Matches pane. 
+	 */
 	private void reloadRecentMatchesForCurrentSummoner()
 	{
 		// Empty the match list.
@@ -1166,6 +1181,11 @@ public class StatController extends JFrame implements ActionListener{
 		}
 	}
 	
+	/**
+	 * Updates the stats for a given champion on the champion-specific panel 
+	 * @param championName The name of the champion whose stat panel needs to be updated
+	 * @param matchesPlayedOnChamp A list of the matches to be used when calculated the new values for the stat panel. 
+	 */
 	public void updateStatPanelWithMatches(String championName, ArrayList<Match> matchesPlayedOnChamp)
 	{
 		int tabIndex = mainWindow.indexOfTab(championName);
@@ -1186,6 +1206,14 @@ public class StatController extends JFrame implements ActionListener{
 		updateSingleGameStatPanel(calculateMinionKillsPerMatch(matchesPlayedOnChamp),minionKillPanel);
 	}
 	
+	/**
+	 * A helper method that updates the given {@code JPanel} called statPanel for a champion
+	 * when a value needs to be updated. The values commonly need to be udpated when a matchmaking queue 
+	 * is or is not being considered for a player's overall stats with a champion. No computation
+	 * is done by this method, only updating.
+	 * @param newValue The newly calculated value for the given stat
+	 * @param statPanel The {@code JPanel} that needs to be updated with the value of {@code newValue}.
+	 */
 	private void updateSingleGameStatPanel(double newValue, JPanel statPanel)
 	{
 		DecimalFormat dformat = new DecimalFormat("##0.00");
@@ -1315,7 +1343,11 @@ public class StatController extends JFrame implements ActionListener{
 	}
 	
 	
-	
+	/**
+	 * Removes the summoner {@code summonerName} from being tracked by LoLStatTracker. This doesn't delete any of their stats,
+	 * it simply removes them from the list of summoners when choosing to 'Change Summoner' or 'Change Main Summoner'
+	 * @param summonerName The name of the summoner to be removed. 
+	 */
 	private void removeSummonerFromTracking(String summonerName)
 	{
 		info.removeSummoner(summonerName);
@@ -1349,7 +1381,10 @@ public class StatController extends JFrame implements ActionListener{
 	private void updateChangeAndRemoveSummonerMenu()
 	{
 		ArrayList<String> summoners = new ArrayList<String>(info.getSummonerList());
+		
 		JMenu summonerMenu = mainMenuBar.getMenu(1);
+		
+		//Update the remove summoner menu item with the correct names
 		JMenu removeSummonerMenu = (JMenu) summonerMenu.getMenuComponent(1);
 		removeSummonerMenu.removeAll();
 		if(summoners.size() > 0)
@@ -1371,7 +1406,8 @@ public class StatController extends JFrame implements ActionListener{
 			removeSummonerMenu.add(noChoiceItem);
 		}
 
-		
+		//Update the change current summoner menu item. Set the new current summoner to be unavailable so that
+		//no one can change the summoner to the already current summoner.
 		JMenu changeSummonerMenu = (JMenu) summonerMenu.getMenuComponent(2);
 		changeSummonerMenu.removeAll();
 		if(summoners.size() > 0)
@@ -1395,6 +1431,9 @@ public class StatController extends JFrame implements ActionListener{
 			noChoiceItem.setEnabled(false);
 			changeSummonerMenu.add(noChoiceItem);
 		}
+		
+		//Updates the menu that allows a user to change the summoner that loads by default when they start LoLStatTracker.
+		//Greys out the summoner that is currently considered 'Main Summoner'
 		JMenu changeMainSummonerMenu = (JMenu) summonerMenu.getMenuComponent(3);
 		changeMainSummonerMenu.removeAll();
 		if(summoners.size() > 0)
@@ -1425,6 +1464,7 @@ public class StatController extends JFrame implements ActionListener{
 	 * a placeholder icon rather than call a champ 'Unknown' and try to figure out who it is later.
 	 * This will set me up so that I don't have to modify old DB entries when a new champ is added but I haven't released an update.
 	 */
+	/*
 	private void addChampIdForAllChampNames()
 	{
 		ArrayList<Match> matches = mr.getAllMatches();
@@ -1434,7 +1474,7 @@ public class StatController extends JFrame implements ActionListener{
 			m.setChampionId(champId);
 			mr.update(m);
 		}
-	}
+	}*/
 	
 	private class MatchCheckPanel extends JPanel implements ItemListener
 	{
@@ -1527,6 +1567,13 @@ public class StatController extends JFrame implements ActionListener{
 			
 		}
 		
+		/**
+		 * Creates the checkbox/queue name combo element and adds it to the {@code MatchCheckPanel}
+		 * @param startX The grid's {@code gridx} for the checkbox/name pair
+		 * @param startY The grid's {@code gridy} for the checkbox/name pair
+		 * @param matchmakingQueueName The human-readable name of the matchmaking queue
+		 * @param checkBoxToUse The JCheckBox that should be used as part of the checkbox/name pair
+		 */
 		private void createBoxAndLabel(int startX, int startY, String matchmakingQueueName, JCheckBox checkBoxToUse)
 		{
 			GridBagConstraints c = new GridBagConstraints();
