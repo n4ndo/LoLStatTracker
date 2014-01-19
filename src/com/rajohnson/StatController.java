@@ -770,7 +770,7 @@ public class StatController extends JFrame implements ActionListener{
 					String inputValue = JOptionPane.showInputDialog(null, inputDialogString, "Update Client Version", 
 							JOptionPane.QUESTION_MESSAGE);
 					String retryDialogString = "The client version you entered: " + inputValue + " does not fit the proper format.";
-					retryDialogString += "\nPlease enter the current patch version in the format #.##";
+					retryDialogString += "\nPlease enter the current patch version in the format #.## or #.#";
 					while(!info.setClientVersion(inputValue))
 					{
 						inputValue = JOptionPane.showInputDialog(null, retryDialogString, "Update Client Version", JOptionPane.QUESTION_MESSAGE);

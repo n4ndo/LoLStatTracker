@@ -406,6 +406,10 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 	private JPanel itemPanel;
 	private ArrayList<JLabel> itemLabels;
 	
+	/**
+	 * 
+	 * @param size Sets the size of the text for the MatchCell.
+	 */
 	public MatchCellRenderer(CellSize size) {
 		setLayout(new GridBagLayout());
 		setBorder(BorderFactory.createLineBorder(Color.black));
@@ -447,6 +451,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		Font serifFontBold = new Font(Font.SERIF, Font.BOLD, fontSize);
 		Font serifFont = new Font(Font.SERIF, Font.PLAIN, fontSize);
 		
+		//Setup the JLabel that says 'Kills: ##'
 		killPanel = new JPanel();
 		killPanel.setOpaque(false);
 		killPanel.setLayout(new GridLayout(1,2));
@@ -458,6 +463,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		killPanel.add(killsLabel);
 		killPanel.add(killCount);
 		
+		//Setup the JLabels that say 'Deaths: ##'
 		deathPanel = new JPanel();
 		deathPanel.setOpaque(false);
 		deathPanel.setLayout(new GridLayout(1,2));
@@ -469,6 +475,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		deathPanel.add(deathsLabel);
 		deathPanel.add(deathCount);
 		
+		//Setup the JLabels that say 'Assists: ##'
 		assistPanel = new JPanel();
 		assistPanel.setOpaque(false);
 		assistPanel.setLayout(new GridLayout(1,2));
@@ -481,6 +488,7 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		assistPanel.add(assistsLabel);
 		assistPanel.add(assistCount);
 		
+		//Setup the JLabels that say 'Monsters Killed: ##'
 		CSPanel = new JPanel();
 		CSPanel.setOpaque(false);
 		CSPanel.setLayout(new GridLayout(1,2));
@@ -492,10 +500,12 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		CSPanel.add(CSLabel);
 		CSPanel.add(CSCount);
 		
+		//Create the label that says what matchmaking queue a game was played in.
 		matchmakingQueueLabel = new JLabel();
 		matchmakingQueueLabel.setFont(serifFontBold);
 		matchmakingQueueLabel.setPreferredSize(new Dimension(243,19));
 		
+		//Create the label that says what date the game was played
 		datePlayedPanel = new JPanel();
 		datePlayedPanel.setOpaque(false);
 		datePlayedLabel = new JLabel("Date: ");
@@ -605,6 +615,10 @@ public class MatchCellRenderer<E> extends JPanel implements ListCellRenderer<E> 
 		
 	}
 
+	/**
+	 * paintComponent has been overridden to give the tan gradient effect similar to what is used in the League of Legends
+	 * client for each match.
+	 */
 	@Override
 	public void paintComponent(Graphics g) {
         super.paintComponent(g);

@@ -184,7 +184,7 @@ public class InfoLoader {
 	 */
 	public boolean setClientVersion(String newClientVersion)
 	{
-		if(newClientVersion.matches("[0-9]\\.[0-9]{2}"))
+		if(newClientVersion.matches("[0-9]\\.[0-9]{1,2}"))
 		{
 			clientVersion = newClientVersion;
 			writeInfoToResourceFile();
